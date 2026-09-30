@@ -95,6 +95,11 @@ adapters
   judgment costs about $0.0002. Around 200–300ms.
 
 ## Cassette format (draft)
+
+Implemented in `src/cassette/store.ts`: saved as sorted-key JSON, 2-space
+indent, trailing newline; written to a temp file then renamed (atomic).
+A missing file loads as an empty cassette; an unknown `version` is an error.
+
 ```jsonc
 {
   "version": 1,
@@ -125,6 +130,10 @@ adapters
 - A `test.extend({ cassette })` fixture builds the path from
   `task.file.filepath` plus the describe chain plus `task.name` and
   flushes on teardown.
+- **Decided:** path is `<test dir>/__cassettes__/<test file>/<slug>.<hash8>.json`
+  (`src/cassette/path.ts`). The slug is the lowercased name chain, capped at
+  80 chars; the 8-char hash of the full chain stops two tests whose names
+  slug the same from sharing a cassette.
 - Mode comes from an env var (`LLM_CASSETTE_MODE`), with CI defaulting to
   `replay`.
 - Vitest workers are separate isolates, so global patching per worker is
