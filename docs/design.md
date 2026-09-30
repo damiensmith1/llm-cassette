@@ -46,6 +46,30 @@ adapters
   are stored but not compared.
 - Canonical JSON (sorted keys) is used for hashing.
 
+## Session and `fetch` (implemented)
+
+`openCassette(path, { mode, provider?, fetch? })` in `src/session.ts` returns
+a session whose `fetch` is passed to the SDK (`new OpenAI({ fetch })`).
+Decisions:
+- **Mode default:** explicit option → `LLM_CASSETTE_MODE` → `replay` when
+  `CI` is set, else `record` (`src/config.ts`). `record` replays matches and
+  records misses (VCR's `new_episodes`); `refresh` starts from an empty
+  cassette.
+- **Request headers are never recorded** — not redacted, dropped. They hold
+  the API key and per-run noise, and aren't part of the match key. Response
+  `set-cookie`, `content-length` and encoding headers are dropped too.
+- **Repeated identical requests** replay in recorded order; each recording
+  is used once per session.
+- **Misses in `replay` return an HTTP 400** (`x-should-retry: false`,
+  `x-llm-cassette: miss`) instead of throwing. Both SDKs wrap thrown fetch
+  errors as a generic "Connection error" and retry them, which hid the
+  message. The miss is also recorded in `session.events`, so the Vitest
+  adapter can fail the test even if app code catches the error.
+- **Streaming, interim:** SSE bodies are stored as raw text and replay
+  byte for byte. The parsed event list (below) is still the plan.
+- Provider is detected from the URL (`/messages` → anthropic, else openai),
+  overridable for proxies.
+
 ## Matching ladder
 1. **Exact.** Hash the canonical request. On a hit, replay. Free.
 2. **Scrubbed.** Apply the scrubbers, hash, and replay on a hit.
@@ -138,6 +162,17 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
   `replay`.
 - Vitest workers are separate isolates, so global patching per worker is
   safe across files.
+
+## Build order
+
+1. [x] Cassette store + canonical hashing
+2. [x] Exact replay through `openCassette().fetch`
+3. [ ] Global interception (`@mswjs/interceptors`) + Vitest fixture
+4. [ ] Scrubbing rules
+5. [ ] Hard checks
+6. [ ] Jev judge + stored verdicts
+7. [ ] Run report
+8. [ ] Streaming as parsed SSE events
 
 ## Open questions
 - [ ] **Package name.** `llm-cassette` already exists on npm, and
