@@ -8,7 +8,8 @@ stays deterministic. Vitest first.
 Status: early development. Exact record/replay works through
 `openCassette().fetch` and the `llm-cassette/vitest` fixture (global
 interception), with scrubbing, hard checks and Jev judging of prompt
-edits with stored verdicts. The run report is next (see build
+edits with stored verdicts, and a Vitest run reporter. Streaming as
+parsed SSE events is next (see build
 order in docs/design.md).
 
 ## Docs
@@ -17,6 +18,7 @@ Read these before non-trivial changes:
 - `docs/background.md`: problem, prior art, why TypeScript
 - `docs/requirements.md`: MVP scope, non-goals
 - `docs/design.md`: architecture, matching ladder, open questions
+- `docs/configuration.md`: every option and env var (keep it current when adding one)
 
 ## Conventions
 - Node 20+, TypeScript, ESM and CJS builds.

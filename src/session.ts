@@ -1,5 +1,5 @@
 import { loadCassette, saveCassette, emptyCassette } from "./cassette/store.js";
-import { resolveMode } from "./config.js";
+import { resolveMode, resolveThreshold } from "./config.js";
 import { recordRequest, requestKey } from "./normalize/request.js";
 import { recordResponse, replayResponse } from "./normalize/response.js";
 import { createScrubber, scrubbedKey } from "./normalize/scrub.js";
@@ -10,8 +10,6 @@ import type { Judge } from "./match/jev.js";
 import type { ScrubOptions } from "./normalize/scrub.js";
 import type { Cassette, MatchKind, Mode, Provider, RecordedRequest, Verdict } from "./types.js";
 
-/** Placeholder until tuned on labeled prompt edits (see docs/design.md). */
-export const DEFAULT_THRESHOLD = 0.85;
 
 export interface OpenCassetteOptions {
   mode?: Mode;
@@ -28,7 +26,7 @@ export interface OpenCassetteOptions {
    * judging off, so text edits always re-record.
    */
   judge?: Judge | false;
-  /** Minimum probability from the judge to replay. Default 0.85. */
+  /** Minimum probability from the judge to replay. Falls back to `LLM_CASSETTE_THRESHOLD`, then 0.85. */
   threshold?: number;
   /** The real fetch used when recording. Defaults to the global fetch. */
   fetch?: typeof fetch;
@@ -78,6 +76,8 @@ function missResponse(err: CassetteMissError): Response {
 export interface CassetteSession {
   readonly path: string;
   readonly mode: Mode;
+  /** The judge threshold in effect. */
+  readonly threshold: number;
   /** Pass as the SDK's `fetch` option: `new OpenAI({ fetch: session.fetch })`. */
   readonly fetch: typeof fetch;
   /**
@@ -104,7 +104,7 @@ export async function openCassette(path: string, options: OpenCassetteOptions = 
   const pending = new Set<Promise<void>>();
   const scrubber = createScrubber(options.scrub);
   const judge = options.judge === false ? undefined : (options.judge ?? createJevJudge());
-  const threshold = options.threshold ?? DEFAULT_THRESHOLD;
+  const threshold = resolveThreshold(options.threshold);
   let calls = 0;
 
   /**
@@ -216,6 +216,7 @@ export async function openCassette(path: string, options: OpenCassetteOptions = 
   return {
     path,
     mode,
+    threshold,
     fetch: sessionFetch as typeof fetch,
     resolve,
     record,

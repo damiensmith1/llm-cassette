@@ -3,7 +3,7 @@ import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, vi } from "vitest";
-import { test } from "../src/adapters/vitest.js";
+import { createTest, test } from "../src/adapters/vitest.js";
 import { cassettePath } from "../src/cassette/path.js";
 import { saveCassette } from "../src/cassette/store.js";
 import { recordRequest } from "../src/normalize/request.js";
@@ -46,5 +46,11 @@ describe("vitest adapter", () => {
 
   test.fails("fails the test on a miss even if the error is caught", async () => {
     await ask().catch(() => undefined);
+  });
+
+  const lenient = createTest({ onMiss: "warn", judge: false });
+  lenient("only reports a miss with onMiss: warn", async ({ cassette }) => {
+    await ask().catch(() => undefined);
+    expect(cassette.events.map((e) => e.kind)).toEqual(["miss"]);
   });
 });

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveMode } from "../src/config.js";
+import { resolveMode, resolveThreshold } from "../src/config.js";
 
 describe("resolveMode", () => {
   afterEach(() => vi.unstubAllEnvs());
@@ -25,5 +25,26 @@ describe("resolveMode", () => {
     expect(resolveMode()).toBe("replay");
     vi.stubEnv("CI", "");
     expect(resolveMode()).toBe("record");
+  });
+});
+
+describe("resolveThreshold", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("defaults to 0.85", () => {
+    vi.stubEnv("LLM_CASSETTE_THRESHOLD", "");
+    expect(resolveThreshold()).toBe(0.85);
+  });
+
+  it("prefers the explicit option, then the env var", () => {
+    vi.stubEnv("LLM_CASSETTE_THRESHOLD", "0.7");
+    expect(resolveThreshold(0.95)).toBe(0.95);
+    expect(resolveThreshold()).toBe(0.7);
+  });
+
+  it("rejects values outside 0–1", () => {
+    expect(() => resolveThreshold(1.5)).toThrow(/0 to 1/);
+    vi.stubEnv("LLM_CASSETTE_THRESHOLD", "high");
+    expect(() => resolveThreshold()).toThrow(/0 to 1/);
   });
 });

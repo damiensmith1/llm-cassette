@@ -48,6 +48,16 @@
         "types": "./dist/adapters/vitest.d.cts",
         "default": "./dist/adapters/vitest.cjs"
       }
+    },
+    "./vitest/reporter": {
+      "import": {
+        "types": "./dist/adapters/vitest-reporter.d.ts",
+        "default": "./dist/adapters/vitest-reporter.js"
+      },
+      "require": {
+        "types": "./dist/adapters/vitest-reporter.d.cts",
+        "default": "./dist/adapters/vitest-reporter.cjs"
+      }
     }
   },
   "files": [

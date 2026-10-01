@@ -233,6 +233,18 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
 - Vitest workers are separate processes/isolates, so interception per
   worker is safe across files.
 
+## Run report (implemented)
+- Core (`src/report/summary.ts`) is runner-agnostic: `summarize()` and
+  `formatSummary(summary, detail)`.
+- **Decided:** in Vitest, the fixture attaches a serializable `TestReport`
+  to `task.meta.llmCassette` (only for tests that made LLM calls), and a
+  separate reporter, `llm-cassette/vitest/reporter`, collects it in the
+  main process via `onTestCaseResult` and prints at `onTestRunEnd`. That's
+  the only way to aggregate across Vitest workers without IPC of our own.
+  Users opt in by adding it to `reporters`.
+- All settings and their env vars are listed in [[configuration]].
+- This repo's own `vitest.config.ts` uses the reporter.
+
 ## Build order
 
 1. [x] Cassette store + canonical hashing
@@ -241,7 +253,7 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
 4. [x] Scrubbing rules
 5. [x] Hard checks
 6. [x] Jev judge + stored verdicts
-7. [ ] Run report
+7. [x] Run report
 8. [ ] Streaming as parsed SSE events
 
 ## Open questions
