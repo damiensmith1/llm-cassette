@@ -124,28 +124,52 @@ Decisions:
    **Candidate (decided, `src/match/candidate.ts`):** the unused recording
    at the same position in the session's call sequence if it hits the same
    endpoint, else the first unused one for that endpoint.
-4. **Jev judgment.** Pick the candidate recording: the same test, the same
-   position in the call sequence. Send Jev a trimmed state:
+4. **Jev judgment (implemented, `src/match/jev.ts`, `src/match/diff.ts`).**
+   Runs on the rung-3 candidate once every hard check passes. State sent to
+   Jev, only the conversation-text fields:
    ```
-   old_request, new_request, diff (computed in code), recorded_response (flattened)
+   old_request, new_request, diff (computed in code), recorded_response (flattened text + tool calls)
    ```
+   - String edits in the diff are trimmed to the changed span plus 300
+     chars of context each side, so a one-word edit in a long prompt is
+     small.
+   - If the state exceeds ~100k chars (Jev's 32k-token state limit), only
+     `diff` + `recorded_response` are sent; if that's still too big, it
+     can't be judged and re-records.
+
    Questions, all asked in one call:
    - `still_valid` (primary Noul): "Would `recorded_response` be a correct
      and appropriate reply to `new_request`, given the changes in `diff`?"
      Its true/false criteria are spelled out explicitly.
-   - `format_changed`, `asks_different_task`: diagnostic Nouls that
-     explain rejections.
+   - `format_changed`, `asks_different_task`: diagnostic Nouls shown in the
+     rejection reason.
 
-   Replay if `still_valid ≥ threshold`. Otherwise re-record or fail.
+   Replay if `still_valid ≥ threshold` (reported as `judged` with p).
+   Otherwise re-record, or fail in `replay` mode (reported as `rejected`).
+   The judge is pluggable (`judge` option, `Judge` interface); `judge: false`
+   makes every text edit re-record.
 5. **Miss.** Re-record in `record` mode, fail in `replay` mode.
 
-### Stored verdicts
-- Key: sha256 of (canonical old request, canonical new request, question
-  text + criteria, question version, pinned model id).
-- Store p, the diagnostic signals, the threshold, the model id and input
-  tokens.
-- In `replay` mode the verdict is read, never computed. A missing verdict
-  fails the test with "re-run in record mode".
+**First live check (2026-10-01, jev-1.13.0):** paraphrase of "capital of
+France" p=0.99; France → Germany p=0.02 (`asks_different_task` 0.62);
+"…reply in JSON" p=0.10 (`format_changed` 0.82). `test/jev.live.test.ts`
+runs these when `TYPESAFE_API_KEY` is set or `.env` exists; skipped in CI.
+
+### Stored verdicts (implemented)
+- Key: sha256 of (canonical old request, canonical new request, judge id
+  = pinned model + question version, question text + criteria).
+- Stored: p, diagnostic signals, threshold at the time, the model version
+  Jev reported, the judge id. Rejections are stored too.
+- **The current threshold is applied to stored p**, so raising the
+  threshold takes effect in `replay` without re-judging.
+- In `replay` mode verdicts are only read; the judge (and its API key) is
+  never touched. A missing verdict fails with "no stored verdict".
+- **Fail closed:** no verdict in replay, no API key, a Jev error or an
+  oversized request never replays — it re-records (record mode) or fails.
+- **Superseding (decided):** when a candidate is rejected and its
+  replacement is recorded, the old recording and its verdict are removed
+  on save, so cassettes don't accumulate stale entries. Other unused
+  recordings are kept (a test that failed midway shouldn't lose them).
 
 ## Jev integration
 - `@typesafe-ai/sdk` v0.6 (`TypeSafeClient().systemOne({state, questions,
@@ -177,7 +201,7 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
     }
   ],
   "verdicts": [
-    { "key": "sha256…", "model": "jev-1.13.0", "questionVersion": "v1",
+    { "key": "sha256…", "model": "jev-1.13.0", "judge": "jev-1.13.0:v1",
       "p": 0.94, "signals": { "format_changed": 0.03 }, "threshold": 0.85, "replay": true }
   ]
 }
@@ -216,7 +240,7 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
 3. [x] Global interception (`@mswjs/interceptors`) + Vitest fixture
 4. [x] Scrubbing rules
 5. [x] Hard checks
-6. [ ] Jev judge + stored verdicts
+6. [x] Jev judge + stored verdicts
 7. [ ] Run report
 8. [ ] Streaming as parsed SSE events
 
@@ -225,6 +249,9 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
       github.com/jamal-0x1/llm-cassette (1 star) exists. Pick a different
       published name?
 - [ ] Default threshold. 0.85 is a placeholder; tune it on labeled pairs.
+      First live samples were far from it (0.99 vs 0.02–0.10).
+- [ ] Pruning unused recordings in general (only superseded ones are
+      removed today).
 - [x] Candidate selection: same sequence position, else first unused for
       the endpoint (see rung 3). Revisit if Jev scores make "best score"
       worth it.

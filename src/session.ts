@@ -5,8 +5,13 @@ import { recordResponse, replayResponse } from "./normalize/response.js";
 import { createScrubber, scrubbedKey } from "./normalize/scrub.js";
 import { pickCandidate } from "./match/candidate.js";
 import { hardChecks } from "./match/hardChecks.js";
+import { createJevJudge, verdictKey } from "./match/jev.js";
+import type { Judge } from "./match/jev.js";
 import type { ScrubOptions } from "./normalize/scrub.js";
-import type { Cassette, MatchKind, Mode, Provider, RecordedRequest } from "./types.js";
+import type { Cassette, MatchKind, Mode, Provider, RecordedRequest, Verdict } from "./types.js";
+
+/** Placeholder until tuned on labeled prompt edits (see docs/design.md). */
+export const DEFAULT_THRESHOLD = 0.85;
 
 export interface OpenCassetteOptions {
   mode?: Mode;
@@ -17,6 +22,14 @@ export interface OpenCassetteOptions {
    * `metadata`) are ignored when no exact match exists. `false` disables it.
    */
   scrub?: ScrubOptions | false;
+  /**
+   * Last rung: decides whether a recording is still valid after a prompt-text
+   * edit. Defaults to Jev; only called in record/refresh mode. `false` turns
+   * judging off, so text edits always re-record.
+   */
+  judge?: Judge | false;
+  /** Minimum probability from the judge to replay. Default 0.85. */
+  threshold?: number;
   /** The real fetch used when recording. Defaults to the global fetch. */
   fetch?: typeof fetch;
 }
@@ -31,6 +44,8 @@ export interface MatchEvent {
   request: RecordedRequest;
   /** Why no recording was replayed, for misses and re-records. */
   reason?: string;
+  /** The judge's probability, when one was consulted. */
+  p?: number;
 }
 
 export class CassetteMissError extends Error {
@@ -88,24 +103,64 @@ export async function openCassette(path: string, options: OpenCassetteOptions = 
 
   const pending = new Set<Promise<void>>();
   const scrubber = createScrubber(options.scrub);
+  const judge = options.judge === false ? undefined : (options.judge ?? createJevJudge());
+  const threshold = options.threshold ?? DEFAULT_THRESHOLD;
   let calls = 0;
 
-  /** Why the nearest recording couldn't be replayed. */
-  const missReason = (callIndex: number, req: RecordedRequest): string => {
-    const candidate = pickCandidate(cassette, used, callIndex, req);
-    if (candidate === -1) return "no unused recording for this endpoint";
-    const check = hardChecks(cassette.interactions[candidate]!, req, scrubber);
-    return check.ok ? "prompt text changed; Jev judging isn't implemented yet" : check.reason;
-  };
+  /**
+   * Recordings a re-record replaces, removed on save along with their verdicts.
+   * Keyed by the new request object that `record()` receives.
+   */
+  const supersedes = new Map<RecordedRequest, { index: number; verdict?: string }>();
+  const superseded = new Set<number>();
+  const staleVerdicts = new Set<string>();
 
   /** First unused recording whose key matches, so repeated calls replay in order. */
   const findUnused = (key: string, keyOf: (req: RecordedRequest) => string): number =>
     cassette.interactions.findIndex((it, i) => !used.has(i) && keyOf(it.request) === key);
 
-  const replay = (index: number, kind: MatchKind, request: RecordedRequest): Resolution => {
+  const replay = (index: number, kind: MatchKind, request: RecordedRequest, p?: number): Resolution => {
     used.add(index);
-    events.push({ kind, request });
+    events.push(p === undefined ? { kind, request } : { kind, request, p });
     return { kind: "replay", response: replayResponse(cassette.interactions[index]!.response) };
+  };
+
+  /**
+   * Hard checks, then the stored verdict or a fresh judgment. Returns a
+   * replay, or the reason it can't replay. Fails closed: no verdict, no key
+   * or a judge error never replays.
+   */
+  const judgeNearMiss = async (callIndex: number, req: RecordedRequest): Promise<Resolution | { reason: string; p?: number }> => {
+    const candidate = pickCandidate(cassette, used, callIndex, req);
+    if (candidate === -1) return { reason: "no unused recording for this endpoint" };
+    used.add(candidate); // Claim it before any await, so concurrent calls don't share it.
+    const recording = cassette.interactions[candidate]!;
+    supersedes.set(req, { index: candidate });
+
+    const check = hardChecks(recording, req, scrubber);
+    if (!check.ok) return { reason: check.reason };
+    if (!judge) return { reason: "prompt text changed and judging is off" };
+
+    const key = verdictKey(recording.request, req, judge.id);
+    supersedes.set(req, { index: candidate, verdict: key });
+    let verdict = cassette.verdicts.find((v) => v.key === key);
+    if (!verdict) {
+      if (mode === "replay") return { reason: "prompt text changed and there's no stored verdict" };
+      try {
+        const j = await judge.judge({ old: recording.request, next: req, response: recording.response });
+        verdict = { key, model: j.model, judge: judge.id, p: j.p, signals: j.signals, threshold, replay: j.p >= threshold };
+        cassette.verdicts.push(verdict);
+        dirty = true;
+      } catch (err) {
+        return { reason: `couldn't judge the prompt change: ${(err as Error).message}` };
+      }
+    }
+    if (verdict.p >= threshold) {
+      supersedes.delete(req);
+      return replay(candidate, "judged", req, verdict.p);
+    }
+    const signals = Object.entries(verdict.signals).map(([k, v]) => `${k}=${v.toFixed(2)}`).join(", ");
+    return { reason: `judge says the recording no longer fits (p=${verdict.p.toFixed(2)} < ${threshold}${signals ? `; ${signals}` : ""})`, p: verdict.p };
   };
 
   const resolve = async (req: Request): Promise<Resolution> => {
@@ -120,12 +175,14 @@ export async function openCassette(path: string, options: OpenCassetteOptions = 
       const scrubbed = findUnused(keyOf(recorded), keyOf);
       if (scrubbed !== -1) return replay(scrubbed, "scrubbed", recorded);
     }
-    const reason = missReason(callIndex, recorded);
+    const near = await judgeNearMiss(callIndex, recorded);
+    if ("kind" in near) return near;
     if (mode === "replay") {
-      events.push({ kind: "miss", request: recorded, reason });
-      return { kind: "miss", response: missResponse(new CassetteMissError(path, recorded, reason)) };
+      supersedes.delete(recorded);
+      events.push({ kind: near.p === undefined ? "miss" : "rejected", request: recorded, ...near });
+      return { kind: "miss", response: missResponse(new CassetteMissError(path, recorded, near.reason)) };
     }
-    return { kind: "record", request: recorded, reason };
+    return { kind: "record", request: recorded, reason: near.reason };
   };
 
   const record = (request: RecordedRequest, res: Response, reason?: string): Promise<void> => {
@@ -133,6 +190,12 @@ export async function openCassette(path: string, options: OpenCassetteOptions = 
       cassette.interactions.push({ request, response, recordedAt: new Date().toISOString() });
       used.add(cassette.interactions.length - 1);
       events.push(reason === undefined ? { kind: "recorded", request } : { kind: "recorded", request, reason });
+      const old = supersedes.get(request);
+      if (old) {
+        superseded.add(old.index);
+        if (old.verdict) staleVerdicts.add(old.verdict);
+        supersedes.delete(request);
+      }
       dirty = true;
     });
     pending.add(task);
@@ -159,7 +222,12 @@ export async function openCassette(path: string, options: OpenCassetteOptions = 
     events,
     async save() {
       await Promise.all(pending);
-      if (dirty) await saveCassette(path, cassette);
+      if (!dirty) return;
+      await saveCassette(path, {
+        ...cassette,
+        interactions: cassette.interactions.filter((_, i) => !superseded.has(i)),
+        verdicts: cassette.verdicts.filter((v: Verdict) => !staleVerdicts.has(v.key)),
+      });
       dirty = false;
     },
   };

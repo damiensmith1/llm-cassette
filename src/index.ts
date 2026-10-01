@@ -18,3 +18,6 @@ export { DEFAULT_HOSTS, interceptGlobal } from "./intercept/global.js";
 export type { InterceptOptions } from "./intercept/global.js";
 export { DEFAULT_IGNORE_FIELDS, DEFAULT_PATTERNS, SCRUBBED } from "./normalize/scrub.js";
 export type { ScrubOptions } from "./normalize/scrub.js";
+export { DEFAULT_THRESHOLD } from "./session.js";
+export { createJevJudge, DEFAULT_JEV_MODEL, QUESTION_VERSION } from "./match/jev.js";
+export type { Judge, JudgeInput, Judgment, JevJudgeOptions } from "./match/jev.js";

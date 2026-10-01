@@ -28,8 +28,10 @@ export interface Interaction {
 /** A stored Jev judgment, so replay never calls Jev. */
 export interface Verdict {
   key: string;
+  /** The model version that answered, as reported by the judge. */
   model: string;
-  questionVersion: string;
+  /** The judge's id (model + question version) at the time. */
+  judge: string;
   p: number;
   signals: Record<string, number>;
   threshold: number;

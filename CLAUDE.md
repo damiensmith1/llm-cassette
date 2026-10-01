@@ -7,8 +7,8 @@ stays deterministic. Vitest first.
 
 Status: early development. Exact record/replay works through
 `openCassette().fetch` and the `llm-cassette/vitest` fixture (global
-interception), with scrubbing of timestamps/UUIDs and hard checks that
-explain misses. Jev matching is next (see build
+interception), with scrubbing, hard checks and Jev judging of prompt
+edits with stored verdicts. The run report is next (see build
 order in docs/design.md).
 
 ## Docs
@@ -23,6 +23,8 @@ Read these before non-trivial changes:
 - Replay mode must never touch the network, and that includes Jev.
 - Pin the Jev model version. Version the question wording.
 - Never write auth headers to cassettes.
+- `npm test` runs a live Jev test when `.env` has `TYPESAFE_API_KEY`;
+  it's skipped in CI.
 
 ## Keeping docs in sync
 
