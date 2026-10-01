@@ -16,3 +16,5 @@ export { CassetteMissError, openCassette } from "./session.js";
 export type { CassetteSession, MatchEvent, OpenCassetteOptions } from "./session.js";
 export { DEFAULT_HOSTS, interceptGlobal } from "./intercept/global.js";
 export type { InterceptOptions } from "./intercept/global.js";
+export { DEFAULT_IGNORE_FIELDS, DEFAULT_PATTERNS, SCRUBBED } from "./normalize/scrub.js";
+export type { ScrubOptions } from "./normalize/scrub.js";

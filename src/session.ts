@@ -2,12 +2,19 @@ import { loadCassette, saveCassette, emptyCassette } from "./cassette/store.js";
 import { resolveMode } from "./config.js";
 import { recordRequest, requestKey } from "./normalize/request.js";
 import { recordResponse, replayResponse } from "./normalize/response.js";
+import { createScrubber, scrubbedKey } from "./normalize/scrub.js";
+import type { ScrubOptions } from "./normalize/scrub.js";
 import type { Cassette, MatchKind, Mode, Provider, RecordedRequest } from "./types.js";
 
 export interface OpenCassetteOptions {
   mode?: Mode;
   /** Force the provider instead of detecting it from the URL (for proxies or custom base URLs). */
   provider?: Provider;
+  /**
+   * Second matching rung: timestamps, UUIDs and caller fields (`user`,
+   * `metadata`) are ignored when no exact match exists. `false` disables it.
+   */
+  scrub?: ScrubOptions | false;
   /** The real fetch used when recording. Defaults to the global fetch. */
   fetch?: typeof fetch;
 }
@@ -76,20 +83,28 @@ export async function openCassette(path: string, options: OpenCassetteOptions = 
   let dirty = mode === "refresh";
 
   const pending = new Set<Promise<void>>();
+  const scrubber = createScrubber(options.scrub);
+
+  /** First unused recording whose key matches, so repeated calls replay in order. */
+  const findUnused = (key: string, keyOf: (req: RecordedRequest) => string): number =>
+    cassette.interactions.findIndex((it, i) => !used.has(i) && keyOf(it.request) === key);
+
+  const replay = (index: number, kind: MatchKind, request: RecordedRequest): Resolution => {
+    used.add(index);
+    events.push({ kind, request });
+    return { kind: "replay", response: replayResponse(cassette.interactions[index]!.response) };
+  };
 
   const resolve = async (req: Request): Promise<Resolution> => {
     const recorded = await recordRequest(req, options.provider);
     if (mode === "refresh") return { kind: "record", request: recorded };
 
-    // Repeated identical calls (e.g. a retry loop) replay in recorded order.
-    const key = requestKey(recorded);
-    const index = cassette.interactions.findIndex(
-      (it, i) => !used.has(i) && requestKey(it.request) === key,
-    );
-    if (index !== -1) {
-      used.add(index);
-      events.push({ kind: "exact", request: recorded });
-      return { kind: "replay", response: replayResponse(cassette.interactions[index]!.response) };
+    const exact = findUnused(requestKey(recorded), requestKey);
+    if (exact !== -1) return replay(exact, "exact", recorded);
+    if (scrubber) {
+      const keyOf = (req: RecordedRequest) => scrubbedKey(req, scrubber);
+      const scrubbed = findUnused(keyOf(recorded), keyOf);
+      if (scrubbed !== -1) return replay(scrubbed, "scrubbed", recorded);
     }
     if (mode === "replay") {
       events.push({ kind: "miss", request: recorded });

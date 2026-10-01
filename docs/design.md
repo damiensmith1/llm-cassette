@@ -52,15 +52,24 @@ adapters
   AsyncLocalStorage — see open questions).
 
 ## Normalization
-- Ignore volatile request headers: `X-Stainless-*` (retry count, timeout,
-  OS/arch/runtime), idempotency keys and user-agent. Headers aren't part
-  of the match key by default.
-- Scrubbers: configurable rules that remove timestamps, UUIDs and IDs from
-  message content before hashing.
-- Redact `authorization` and `x-api-key` before writing. Response
-  volatiles (ids, `created`, rate-limit headers, request ids, set-cookie)
-  are stored but not compared.
+- Request headers are never recorded or compared (see Session below):
+  that covers `X-Stainless-*`, idempotency keys, user-agent and auth.
+- Response `set-cookie`, `content-length` and encoding headers are dropped.
+  Other response volatiles (ids, `created`, rate-limit headers, request
+  ids) are stored but never compared.
 - Canonical JSON (sorted keys) is used for hashing.
+- **Scrubbing (implemented, `src/normalize/scrub.ts`).** The second rung.
+  When there's no exact match, both the new request and each recording are
+  compared after:
+  - replacing ISO-8601 dates/datetimes and UUIDs in every string with
+    `<scrubbed>`;
+  - dropping caller-identity top-level fields `user` and `metadata`.
+
+  Decisions: on by default; user `patterns` / `ignoreFields` are *added* to
+  the defaults; `scrub: false` turns it off. Scrubbing runs at match time on
+  both sides and is never written to disk, so a new rule also applies to
+  old cassettes. Numbers are never scrubbed (too likely to be meaningful,
+  e.g. `max_tokens`). A scrubbed hit replays and is reported as `scrubbed`.
 
 ## Session and `fetch` (implemented)
 
@@ -188,7 +197,7 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
 1. [x] Cassette store + canonical hashing
 2. [x] Exact replay through `openCassette().fetch`
 3. [x] Global interception (`@mswjs/interceptors`) + Vitest fixture
-4. [ ] Scrubbing rules
+4. [x] Scrubbing rules
 5. [ ] Hard checks
 6. [ ] Jev judge + stored verdicts
 7. [ ] Run report

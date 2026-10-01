@@ -103,6 +103,20 @@ describe("openCassette", () => {
     expect(play.events).toHaveLength(1);
   });
 
+  it("replays a scrubbed match when only timestamps changed", async () => {
+    const net = fakeNetwork(chatReply);
+    const rec = await openCassette(path, { mode: "record", fetch: net });
+    await chat(rec.fetch, "Summarize today (2026-09-30T08:00:00Z)");
+    await rec.save();
+
+    const play = await openCassette(path, { mode: "replay" });
+    expect(await chat(play.fetch, "Summarize today (2026-10-01T08:00:00Z)")).toBe("receipts");
+    expect(play.events.map((e) => e.kind)).toEqual(["scrubbed"]);
+
+    const strict = await openCassette(path, { mode: "replay", scrub: false });
+    await expect(chat(strict.fetch, "Summarize today (2026-10-01T08:00:00Z)")).rejects.toThrow(/No recording matches/);
+  });
+
   it("records only the misses in record mode", async () => {
     const net = fakeNetwork(chatReply);
     const first = await openCassette(path, { mode: "record", fetch: net });

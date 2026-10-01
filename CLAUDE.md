@@ -7,7 +7,8 @@ stays deterministic. Vitest first.
 
 Status: early development. Exact record/replay works through
 `openCassette().fetch` and the `llm-cassette/vitest` fixture (global
-interception). Scrubbing, hard checks and Jev matching are next (see build
+interception), with scrubbing of timestamps/UUIDs. Hard checks and Jev
+matching are next (see build
 order in docs/design.md).
 
 ## Docs
