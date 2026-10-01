@@ -90,7 +90,7 @@ describe("openCassette", () => {
     await rec.save();
 
     const play = await openCassette(path, { mode: "replay" });
-    await expect(chat(play.fetch, "a different prompt")).rejects.toThrow(/No recording matches/);
+    await expect(chat(play.fetch, "a different prompt")).rejects.toThrow(/prompt text changed/);
     expect(play.events.map((e) => e.kind)).toEqual(["miss"]);
   });
 

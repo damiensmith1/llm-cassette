@@ -32,24 +32,24 @@ export function interceptGlobal(session: CassetteSession, options: InterceptOpti
     );
   }
   const hosts = new Set(options.hosts ?? DEFAULT_HOSTS);
-  const toRecord = new Map<string, RecordedRequest>();
+  const toRecord = new Map<string, { request: RecordedRequest; reason?: string }>();
   const interceptor = new HttpRequestInterceptor();
 
   interceptor.on("request", async ({ request, requestId, controller }) => {
     if (!hosts.has(new URL(request.url).hostname)) return;
     const r = await session.resolve(request);
     if (r.kind === "record") {
-      toRecord.set(requestId, r.request);
+      toRecord.set(requestId, r.reason === undefined ? { request: r.request } : { request: r.request, reason: r.reason });
       return; // No response given: the request goes to the real API.
     }
     controller.respondWith(r.response);
   });
 
   interceptor.on("response", ({ response, requestId, responseType }) => {
-    const request = toRecord.get(requestId);
-    if (!request || responseType !== "original") return;
+    const pending = toRecord.get(requestId);
+    if (!pending || responseType !== "original") return;
     toRecord.delete(requestId);
-    void session.record(request, response);
+    void session.record(pending.request, response, pending.reason);
   });
 
   interceptor.apply();

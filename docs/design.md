@@ -98,15 +98,32 @@ Decisions:
 ## Matching ladder
 1. **Exact.** Hash the canonical request. On a hit, replay. Free.
 2. **Scrubbed.** Apply the scrubbers, hash, and replay on a hit.
-3. **Hard checks, in code.** Any failure means re-record (or fail in
-   `replay` mode). Jev isn't consulted for:
-   - a changed model name or sampling params (temperature, max_tokens, …).
-     Jev is weak at numbers.
-   - a recorded tool call whose tool is missing from the new `tools`, or
-     whose args don't validate against the new JSON schema;
-   - a recorded structured output that fails the new `response_format`
-     schema;
-   - a changed non-text part (image, audio). Jev reads text only.
+3. **Hard checks, in code (implemented, `src/match/hardChecks.ts`).** Any
+   failure means re-record (or fail in `replay` mode, with the reason in the
+   error). Jev is only consulted if every check passes. Decided rules —
+   conservative on purpose, since a wrong replay is worse than a re-record:
+   - **Endpoint and model** must match.
+   - **Settings:** every body field outside the conversation text must
+     match exactly. Text fields are `messages` + `tools` (OpenAI) and
+     `messages` + `system` + `tools` (Anthropic); scrubber `ignoreFields`
+     are skipped. This covers temperature, max_tokens, `response_format`,
+     `tool_choice`, `stream` and anything new. Jev is weak at numbers.
+   - **Structured output:** any change to the format spec rejects (it's a
+     setting). Simpler and safer than validating the recorded JSON against
+     the new schema, which the original draft proposed.
+   - **Tools:** for each tool the recorded reply *called*, the tool must
+     still exist and its argument schema must be unchanged. Description
+     edits and changes to tools that weren't called go to Jev. This replaces
+     validating the recorded args against the new schema, so no JSON Schema
+     validator dependency.
+   - **Images, audio, files:** any change to non-text message parts rejects.
+     Jev reads text only.
+   - **Streamed recordings** (raw SSE text) are rejected until streaming is
+     stored as parsed events.
+
+   **Candidate (decided, `src/match/candidate.ts`):** the unused recording
+   at the same position in the session's call sequence if it hits the same
+   endpoint, else the first unused one for that endpoint.
 4. **Jev judgment.** Pick the candidate recording: the same test, the same
    position in the call sequence. Send Jev a trimmed state:
    ```
@@ -198,7 +215,7 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
 2. [x] Exact replay through `openCassette().fetch`
 3. [x] Global interception (`@mswjs/interceptors`) + Vitest fixture
 4. [x] Scrubbing rules
-5. [ ] Hard checks
+5. [x] Hard checks
 6. [ ] Jev judge + stored verdicts
 7. [ ] Run report
 8. [ ] Streaming as parsed SSE events
@@ -208,8 +225,9 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
       github.com/jamal-0x1/llm-cassette (1 star) exists. Pick a different
       published name?
 - [ ] Default threshold. 0.85 is a placeholder; tune it on labeled pairs.
-- [ ] Candidate selection when a test's call count changes: match by
-      sequence index, by best score, or both?
+- [x] Candidate selection: same sequence position, else first unused for
+      the endpoint (see rung 3). Revisit if Jev scores make "best score"
+      worth it.
 - [ ] Multi-turn cascade: re-recording turn N changes every later request.
       Re-record the rest of the sequence automatically?
 - [ ] Tie re-record to `vitest -u`? That needs Vitest's internal snapshot

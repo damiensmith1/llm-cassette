@@ -41,7 +41,7 @@ export function createTest(options: CassetteTestOptions = {}) {
         }
         const misses = session.events.filter((e) => e.kind === "miss");
         if (misses.length > 0) {
-          const list = misses.map((m) => `  ${m.request.method} ${m.request.url}`).join("\n");
+          const list = misses.map((m) => `  ${m.request.method} ${m.request.url}: ${m.reason ?? "no match"}`).join("\n");
           throw new Error(
             `llm-cassette: ${misses.length} request(s) had no recording in ${path}:\n${list}\n` +
               `Run with LLM_CASSETTE_MODE=record to record them.`,

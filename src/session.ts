@@ -3,6 +3,8 @@ import { resolveMode } from "./config.js";
 import { recordRequest, requestKey } from "./normalize/request.js";
 import { recordResponse, replayResponse } from "./normalize/response.js";
 import { createScrubber, scrubbedKey } from "./normalize/scrub.js";
+import { pickCandidate } from "./match/candidate.js";
+import { hardChecks } from "./match/hardChecks.js";
 import type { ScrubOptions } from "./normalize/scrub.js";
 import type { Cassette, MatchKind, Mode, Provider, RecordedRequest } from "./types.js";
 
@@ -21,18 +23,20 @@ export interface OpenCassetteOptions {
 
 export type Resolution =
   | { kind: "replay" | "miss"; response: Response }
-  | { kind: "record"; request: RecordedRequest };
+  | { kind: "record"; request: RecordedRequest; reason?: string };
 
 /** One entry per request this session handled, for the run report. */
 export interface MatchEvent {
   kind: MatchKind | "recorded";
   request: RecordedRequest;
+  /** Why no recording was replayed, for misses and re-records. */
+  reason?: string;
 }
 
 export class CassetteMissError extends Error {
-  constructor(path: string, req: RecordedRequest) {
+  constructor(path: string, req: RecordedRequest, reason: string) {
     super(
-      `No recording matches ${req.method} ${req.url} in ${path}. ` +
+      `No recording matches ${req.method} ${req.url} in ${path} (${reason}). ` +
         `Run with LLM_CASSETTE_MODE=record to record it.`,
     );
     this.name = "CassetteMissError";
@@ -68,7 +72,7 @@ export interface CassetteSession {
    */
   resolve(req: Request): Promise<Resolution>;
   /** Stores a real response for a request `resolve` said to record. */
-  record(request: RecordedRequest, res: Response): Promise<void>;
+  record(request: RecordedRequest, res: Response, reason?: string): Promise<void>;
   readonly events: readonly MatchEvent[];
   /** Waits for in-flight recordings, then writes the cassette if anything was recorded. */
   save(): Promise<void>;
@@ -84,6 +88,15 @@ export async function openCassette(path: string, options: OpenCassetteOptions = 
 
   const pending = new Set<Promise<void>>();
   const scrubber = createScrubber(options.scrub);
+  let calls = 0;
+
+  /** Why the nearest recording couldn't be replayed. */
+  const missReason = (callIndex: number, req: RecordedRequest): string => {
+    const candidate = pickCandidate(cassette, used, callIndex, req);
+    if (candidate === -1) return "no unused recording for this endpoint";
+    const check = hardChecks(cassette.interactions[candidate]!, req, scrubber);
+    return check.ok ? "prompt text changed; Jev judging isn't implemented yet" : check.reason;
+  };
 
   /** First unused recording whose key matches, so repeated calls replay in order. */
   const findUnused = (key: string, keyOf: (req: RecordedRequest) => string): number =>
@@ -96,6 +109,7 @@ export async function openCassette(path: string, options: OpenCassetteOptions = 
   };
 
   const resolve = async (req: Request): Promise<Resolution> => {
+    const callIndex = calls++;
     const recorded = await recordRequest(req, options.provider);
     if (mode === "refresh") return { kind: "record", request: recorded };
 
@@ -106,18 +120,19 @@ export async function openCassette(path: string, options: OpenCassetteOptions = 
       const scrubbed = findUnused(keyOf(recorded), keyOf);
       if (scrubbed !== -1) return replay(scrubbed, "scrubbed", recorded);
     }
+    const reason = missReason(callIndex, recorded);
     if (mode === "replay") {
-      events.push({ kind: "miss", request: recorded });
-      return { kind: "miss", response: missResponse(new CassetteMissError(path, recorded)) };
+      events.push({ kind: "miss", request: recorded, reason });
+      return { kind: "miss", response: missResponse(new CassetteMissError(path, recorded, reason)) };
     }
-    return { kind: "record", request: recorded };
+    return { kind: "record", request: recorded, reason };
   };
 
-  const record = (request: RecordedRequest, res: Response): Promise<void> => {
+  const record = (request: RecordedRequest, res: Response, reason?: string): Promise<void> => {
     const task = recordResponse(res).then((response) => {
       cassette.interactions.push({ request, response, recordedAt: new Date().toISOString() });
       used.add(cassette.interactions.length - 1);
-      events.push({ kind: "recorded", request });
+      events.push(reason === undefined ? { kind: "recorded", request } : { kind: "recorded", request, reason });
       dirty = true;
     });
     pending.add(task);
@@ -129,7 +144,7 @@ export async function openCassette(path: string, options: OpenCassetteOptions = 
     const r = await resolve(req);
     if (r.kind !== "record") return r.response;
     const res = await realFetch(req);
-    await record(r.request, res);
+    await record(r.request, res, r.reason);
     return res;
   };
 
