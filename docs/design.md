@@ -26,14 +26,30 @@ adapters
 ## Interception
 - Both SDKs (openai-node, @anthropic-ai/sdk) are Stainless-generated. They
   use **global `fetch`** and accept `fetch?: Fetch` in the constructor.
-- Global capture uses `@mswjs/interceptors`, the same base nock v14 uses.
-  It covers fetch, ClientRequest and XHR, and emits request and response
-  events so passthrough traffic can be recorded.
+- **They capture `fetch` when the client is constructed**
+  (`this.fetch = options.fetch ?? getDefaultFetch()`). A module-level
+  `export const openai = new OpenAI()` is built at import time, before any
+  test fixture runs, so patching `globalThis.fetch` in a fixture would miss
+  it.
+- **Decided:** global capture uses `HttpRequestInterceptor` from
+  `@mswjs/interceptors` (v0.45), which intercepts at the socket level and
+  so catches those clients too (`src/intercept/global.ts`). Only hosts in
+  `hosts` (default `api.openai.com`, `api.anthropic.com`) go through the
+  cassette; everything else passes through.
+  - The `request` listener calls `session.resolve()`: replay or miss →
+    `respondWith`; record → no response, so the request goes to the real
+    API, and the `response` event (type `original`) hands the real
+    response to `session.record()`. `save()` awaits in-flight recordings.
+  - Calling native `fetch` from inside the listener would be intercepted
+    again, which is why recording uses passthrough + the response event.
+  - v0.45's `FetchInterceptor` in Node is also socket-level; it doesn't see
+    a stubbed `globalThis.fetch`, so tests use a local HTTP server.
 - The Anthropic SDK also has a `middleware` option (since 0.101.0). It's a
   possible cleaner hook later.
-- `test.concurrent` within one file shares the patched global, so calls
-  can't be attributed to a test. Use per-client `cassetteFetch()` there,
-  or AsyncLocalStorage context (see open questions).
+- Only one session may intercept per process at a time; a second one
+  throws. `test.concurrent` within one file can't attribute requests to a
+  test, so those tests pass `session.fetch` to the client (or, later,
+  AsyncLocalStorage — see open questions).
 
 ## Normalization
 - Ignore volatile request headers: `X-Stainless-*` (retry count, timeout,
@@ -151,23 +167,27 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
 - Reassemble the stream into a final message before judging.
 
 ## Vitest integration
-- A `test.extend({ cassette })` fixture builds the path from
-  `task.file.filepath` plus the describe chain plus `task.name` and
-  flushes on teardown.
+- `llm-cassette/vitest` exports `test` / `it` (and `createTest(options)`
+  for `mode`, `provider`, `hosts`). An **auto** `cassette` fixture runs for
+  every test, so no setup file and no destructuring is needed; tests that
+  make no LLM calls write nothing.
+- The fixture opens the session, starts global interception, runs the
+  test, stops interception and saves. **Any replay miss fails the test**
+  after it runs, even if app code caught the SDK error.
 - **Decided:** path is `<test dir>/__cassettes__/<test file>/<slug>.<hash8>.json`
   (`src/cassette/path.ts`). The slug is the lowercased name chain, capped at
   80 chars; the 8-char hash of the full chain stops two tests whose names
   slug the same from sharing a cassette.
 - Mode comes from an env var (`LLM_CASSETTE_MODE`), with CI defaulting to
   `replay`.
-- Vitest workers are separate isolates, so global patching per worker is
-  safe across files.
+- Vitest workers are separate processes/isolates, so interception per
+  worker is safe across files.
 
 ## Build order
 
 1. [x] Cassette store + canonical hashing
 2. [x] Exact replay through `openCassette().fetch`
-3. [ ] Global interception (`@mswjs/interceptors`) + Vitest fixture
+3. [x] Global interception (`@mswjs/interceptors`) + Vitest fixture
 4. [ ] Scrubbing rules
 5. [ ] Hard checks
 6. [ ] Jev judge + stored verdicts

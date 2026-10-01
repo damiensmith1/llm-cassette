@@ -5,9 +5,10 @@ tests. When a prompt changes, TypeSafe's Jev judges whether the recorded
 response is still valid, and the verdict is stored in the cassette so CI
 stays deterministic. Vitest first.
 
-Status: early development. Cassette store and exact replay via
-`openCassette().fetch` work; global interception, Vitest adapter and Jev
-matching are next (see build order in docs/design.md).
+Status: early development. Exact record/replay works through
+`openCassette().fetch` and the `llm-cassette/vitest` fixture (global
+interception). Scrubbing, hard checks and Jev matching are next (see build
+order in docs/design.md).
 
 ## Docs
 

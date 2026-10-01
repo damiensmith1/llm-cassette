@@ -14,3 +14,5 @@ export { emptyCassette, loadCassette, saveCassette } from "./cassette/store.js";
 export { resolveMode } from "./config.js";
 export { CassetteMissError, openCassette } from "./session.js";
 export type { CassetteSession, MatchEvent, OpenCassetteOptions } from "./session.js";
+export { DEFAULT_HOSTS, interceptGlobal } from "./intercept/global.js";
+export type { InterceptOptions } from "./intercept/global.js";

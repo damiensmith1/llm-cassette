@@ -5,14 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openCassette } from "../src/session.js";
-
-const chatReply = {
-  id: "chatcmpl-1",
-  object: "chat.completion",
-  created: 1,
-  model: "gpt-test",
-  choices: [{ index: 0, message: { role: "assistant", content: "receipts" }, finish_reason: "stop" }],
-};
+import { chatReply, fakeNetwork } from "./fixtures.js";
 
 const messagesReply = {
   id: "msg_1",
@@ -23,16 +16,6 @@ const messagesReply = {
   stop_reason: "end_turn",
   usage: { input_tokens: 1, output_tokens: 1 },
 };
-
-/** A stand-in for the network that counts calls. */
-function fakeNetwork(reply: unknown) {
-  return vi.fn(async () =>
-    new Response(JSON.stringify(reply), {
-      status: 200,
-      headers: { "content-type": "application/json", "set-cookie": "secret=1" },
-    }),
-  );
-}
 
 describe("openCassette", () => {
   let dir: string;
