@@ -96,6 +96,21 @@ export const test = createTest({
 });
 ```
 
+### API keys
+
+Set the judge's key in your shell or CI secrets (`TYPESAFE_API_KEY` for
+Jev, `RESPAN_API_KEY` for span-01), or pass it as `apiKey`. Keys are only
+needed when recording; replay and CI need none.
+
+Neither Vitest nor Jest loads `.env` into tests. To use one, load it in a
+setup file with Node's built-in loader:
+
+```ts
+// test/setup.ts (add to setupFiles in Vitest, setupFilesAfterEnv in Jest)
+import { existsSync } from "node:fs";
+if (existsSync(".env")) process.loadEnvFile(".env");
+```
+
 ## Report
 
 ```ts

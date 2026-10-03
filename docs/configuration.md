@@ -29,7 +29,11 @@ Judge keys, only needed in record/refresh mode: Jev reads
 needs Respan credits). If the key is missing, a prompt edit re-records and
 the reason says which variable to set (or to pass `judge: false`); the
 judge is never called. Verdicts are keyed by judge, so switching judges
-re-judges rather than reusing the other judge's verdicts. The library doesn't load `.env` files; load them yourself.
+re-judges rather than reusing the other judge's verdicts. The library doesn't read `.env` files, and neither Vitest (it only
+exposes `VITE_` variables) nor Jest loads them into tests. Load one in a
+setup file with `process.loadEnvFile(".env")` (guarded by `existsSync`), or
+set the variables in your shell or CI secrets. Contributors: copy
+`.env.example` to `.env` to run the live judge tests.
 
 Recorded response headers are limited to `content-type`, `retry-after`
 and `x-should-retry` (not configurable yet); account ids, cookies and

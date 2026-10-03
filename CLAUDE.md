@@ -27,7 +27,7 @@ Read these before non-trivial changes:
 - Pin the Jev model version. Version the question wording.
 - Never write auth headers to cassettes.
 - `npm test` runs live judge tests (`test/judges.live.test.ts`) for Jev
-  and span-01 when `.env` has `TYPESAFE_API_KEY` / `RESPAN_API_KEY`;
+  and span-01 when `.env` (see `.env.example`) has `TYPESAFE_API_KEY` / `RESPAN_API_KEY`;
   skipped in CI. `SPAN_MODEL=span-01-pro` tests the paid tier.
 
 ## Keeping docs in sync
