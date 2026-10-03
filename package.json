@@ -1,7 +1,6 @@
 {
-  "name": "llm-cassette",
+  "name": "@damiensmith1/llm-cassette",
   "version": "0.0.0",
-  "private": true,
   "description": "Record/replay for LLM API calls in tests. Cassettes that survive prompt edits, judged by Jev.",
   "license": "MIT",
   "author": "Damien Smith",
@@ -88,5 +87,8 @@
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

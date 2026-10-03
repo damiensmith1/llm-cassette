@@ -11,7 +11,7 @@ import type { CassetteSession, OpenCassetteOptions } from "../session.js";
 
 declare module "vitest" {
   interface TaskMeta {
-    /** Set by the cassette fixture; read by `llm-cassette/vitest/reporter`. */
+    /** Set by the cassette fixture; read by `@damiensmith1/llm-cassette/vitest/reporter`. */
     llmCassette?: TestReport;
   }
 }

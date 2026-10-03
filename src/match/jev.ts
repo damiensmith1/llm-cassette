@@ -46,6 +46,13 @@ export interface Judgment {
 export interface Judge {
   /** Identifies the model and question wording; part of every verdict key. */
   readonly id: string;
+  /** This judge's replay threshold, used when the session sets none. */
+  readonly threshold?: number;
+  /**
+   * Returns what's missing (e.g. an API key) if the judge can't run, so the
+   * session can say how to fix it instead of reporting an API error.
+   */
+  setupProblem?(): string | undefined;
   judge(input: JudgeInput): Promise<Judgment>;
 }
 
@@ -86,6 +93,8 @@ export function buildState(input: JudgeInput): Record<string, unknown> | undefin
 
 export interface JevJudgeOptions {
   model?: string;
+  /** Replay threshold for this judge (0–1), used when the session sets none. */
+  threshold?: number;
   /** Defaults to the `TYPESAFE_API_KEY` environment variable. */
   apiKey?: string;
   /** Passed to the Jev client, for tests. */
@@ -98,6 +107,8 @@ export function createJevJudge(options: JevJudgeOptions = {}): Judge {
   let client: TypeSafeClient | undefined;
   return {
     id: `${model}:${QUESTION_VERSION}`,
+    ...(options.threshold !== undefined ? { threshold: options.threshold } : {}),
+    setupProblem: () => (options.apiKey ?? process.env.TYPESAFE_API_KEY ? undefined : "TYPESAFE_API_KEY is not set"),
     async judge(input) {
       const state = buildState(input);
       if (!state) throw new Error("request too large for Jev to judge");

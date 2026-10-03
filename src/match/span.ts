@@ -91,6 +91,8 @@ export function toSpanInput(provider: Provider, body: unknown): SpanMessage[] {
 export interface SpanJudgeOptions {
   /** `span-01-pro` (default) or `span-01-free` (daily cap). */
   model?: string;
+  /** Replay threshold for this judge (0–1), used when the session sets none. */
+  threshold?: number;
   /** Defaults to the `RESPAN_API_KEY` environment variable. */
   apiKey?: string;
   /** For tests. */
@@ -103,6 +105,8 @@ export function createSpanJudge(options: SpanJudgeOptions = {}): Judge {
   const doFetch = options.fetch ?? globalThis.fetch;
   return {
     id: `${model}:${QUESTION_VERSION}`,
+    ...(options.threshold !== undefined ? { threshold: options.threshold } : {}),
+    setupProblem: () => (options.apiKey ?? process.env.RESPAN_API_KEY ? undefined : "RESPAN_API_KEY is not set"),
     async judge(input: JudgeInput) {
       const apiKey = options.apiKey ?? process.env.RESPAN_API_KEY;
       if (!apiKey) throw new Error("RESPAN_API_KEY is not set");

@@ -6,7 +6,7 @@ response is still valid, and the verdict is stored in the cassette so CI
 stays deterministic. Vitest first.
 
 Status: early development. Exact record/replay works through
-`openCassette().fetch` and the `llm-cassette/vitest` fixture (global
+`openCassette().fetch` and the `@damiensmith1/llm-cassette/vitest` fixture (global
 interception), with scrubbing, hard checks and Jev judging of prompt
 edits with stored verdicts, streaming as parsed SSE events, and a Vitest
 run reporter. The MVP build order is complete; see open questions in

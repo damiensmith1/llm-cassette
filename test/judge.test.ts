@@ -109,3 +109,53 @@ describe("judged matching", () => {
     expect(session.events[0]).toMatchObject({ reason: "settings changed: temperature" });
   });
 });
+
+describe("judge setup and thresholds", () => {
+  let dir: string;
+  let path: string;
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "llm-cassette-"));
+    path = join(dir, "c.json");
+    vi.stubEnv("LLM_CASSETTE_THRESHOLD", "");
+  });
+  afterEach(async () => {
+    vi.unstubAllEnvs();
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  async function edit(options: OpenCassetteOptions) {
+    const first = await openCassette(path, { mode: "record", fetch: fakeNetwork(chatReply), judge: false });
+    await new OpenAI({ apiKey: "sk-test-key", fetch: first.fetch, maxRetries: 0 }).chat.completions.create({
+      model: "gpt-test", messages: [{ role: "user", content: "What is the capital of France?" }],
+    });
+    await first.save();
+    const session = await openCassette(path, { mode: "record", fetch: fakeNetwork(chatReply), ...options });
+    await new OpenAI({ apiKey: "sk-test-key", fetch: session.fetch, maxRetries: 0 }).chat.completions.create({
+      model: "gpt-test", messages: [{ role: "user", content: "What's France's capital?" }],
+    });
+    return session;
+  }
+
+  it("explains a missing judge key instead of calling the judge", async () => {
+    vi.stubEnv("TYPESAFE_API_KEY", "");
+    const session = await edit({});
+    expect(session.events[0]).toMatchObject({
+      kind: "recorded",
+      reason: expect.stringMatching(/TYPESAFE_API_KEY is not set.*judge: false/),
+    });
+  });
+
+  it("uses the judge's own threshold when the session sets none", async () => {
+    const judge = { ...fakeJudge(0.8), threshold: 0.75 };
+    const session = await edit({ judge });
+    expect(session.threshold).toBe(0.75);
+    expect(session.events[0]).toMatchObject({ kind: "judged", p: 0.8 });
+  });
+
+  it("lets the session option and env var override the judge's threshold", async () => {
+    const judge = { ...fakeJudge(0.8), threshold: 0.75 };
+    expect((await edit({ judge, threshold: 0.9 })).threshold).toBe(0.9);
+    vi.stubEnv("LLM_CASSETTE_THRESHOLD", "0.95");
+    expect((await edit({ judge })).threshold).toBe(0.95);
+  });
+});

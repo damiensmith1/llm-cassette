@@ -83,3 +83,17 @@ describe("createSpanJudge", () => {
     vi.unstubAllEnvs();
   });
 });
+
+describe("judge options", () => {
+  it("carries a per-judge threshold and reports a missing key", async () => {
+    const { createJevJudge } = await import("../src/match/jev.js");
+    vi.stubEnv("TYPESAFE_API_KEY", "");
+    vi.stubEnv("RESPAN_API_KEY", "");
+    expect(createSpanJudge({ threshold: 0.8 }).threshold).toBe(0.8);
+    expect(createJevJudge().threshold).toBeUndefined();
+    expect(createJevJudge().setupProblem?.()).toBe("TYPESAFE_API_KEY is not set");
+    expect(createSpanJudge().setupProblem?.()).toBe("RESPAN_API_KEY is not set");
+    expect(createSpanJudge({ apiKey: "k" }).setupProblem?.()).toBeUndefined();
+    vi.unstubAllEnvs();
+  });
+});

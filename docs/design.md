@@ -178,6 +178,14 @@ or in `.env`; skipped in CI.
   never touched. A missing verdict fails with "no stored verdict".
 - **Fail closed:** no verdict in replay, no API key, a Jev error or an
   oversized request never replays — it re-records (record mode) or fails.
+- **Judge setup check (decided):** judges may expose `setupProblem()`; a
+  missing key is reported as "the judge can't run: TYPESAFE_API_KEY is not
+  set. Set it, or pass judge: false" instead of an API error, and the
+  judge isn't called. Judging is not silently skipped.
+- **Per-judge thresholds (decided):** judges may carry a `threshold`
+  (`createJevJudge({ threshold })`). Precedence: session option →
+  `LLM_CASSETTE_THRESHOLD` → judge → 0.85. Both built-in judges default to
+  0.85 until the labeled set gives a reason to differ.
 - **Superseding (decided):** when a candidate is rejected and its
   replacement is recorded, the old recording and its verdict are removed
   on save, so cassettes don't accumulate stale entries. Other unused
@@ -278,7 +286,7 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
   but can't be judged. See [[Streaming Architecture in Node.js]].
 
 ## Vitest integration
-- `llm-cassette/vitest` exports `test` / `it` (and `createTest(options)`
+- `@damiensmith1/llm-cassette/vitest` exports `test` / `it` (and `createTest(options)`
   for `mode`, `provider`, `hosts`). An **auto** `cassette` fixture runs for
   every test, so no setup file and no destructuring is needed; tests that
   make no LLM calls write nothing.
@@ -299,7 +307,7 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
   `formatSummary(summary, detail)`.
 - **Decided:** in Vitest, the fixture attaches a serializable `TestReport`
   to `task.meta.llmCassette` (only for tests that made LLM calls), and a
-  separate reporter, `llm-cassette/vitest/reporter`, collects it in the
+  separate reporter, `@damiensmith1/llm-cassette/vitest/reporter`, collects it in the
   main process via `onTestCaseResult` and prints at `onTestRunEnd`. That's
   the only way to aggregate across Vitest workers without IPC of our own.
   Users opt in by adding it to `reporters`.
@@ -333,7 +341,7 @@ streamed rewrite (Sonnet 5). Tests call the handlers directly.
   default (see [[configuration]]).
 
 ## Open questions
-- [ ] **Package name.** `llm-cassette` already exists on npm, and
+- [ ] **Package name.** `@damiensmith1/llm-cassette` already exists on npm, and
       github.com/jamal-0x1/llm-cassette (1 star) exists. Pick a different
       published name?
 - [ ] Default threshold. 0.85 is a placeholder; tune it on labeled pairs,

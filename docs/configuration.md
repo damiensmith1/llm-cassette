@@ -13,20 +13,22 @@ Every knob in one place. Implementation details are in [[design]].
 ## Session / test options
 
 Passed to `openCassette(path, options)` or `createTest(options)` from
-`llm-cassette/vitest`.
+`@damiensmith1/llm-cassette/vitest`.
 
 | Option | Env var | Default | What it does |
 |---|---|---|---|
 | `mode` | `LLM_CASSETTE_MODE` | `replay` if `CI` is set, else `record` | `replay`: no network, fail on a miss. `record`: replay matches, record misses. `refresh`: re-record everything. |
-| `threshold` | `LLM_CASSETTE_THRESHOLD` | `0.85` | Minimum judge probability to replay after a prompt edit. Applied to stored verdicts too, so changing it takes effect without re-judging. Must be 0–1. |
-| `judge` | — | Jev (`jev-1.13.0`) | `createJevJudge({ model, apiKey })`, `createSpanJudge({ model, apiKey })` (Respan span-01; `model` `span-01-pro` default or `span-01-free`), a custom `Judge` (`{ id, judge(input) }`), or `false` so text edits always re-record. |
+| `threshold` | `LLM_CASSETTE_THRESHOLD` | the judge's `threshold`, else `0.85` | Minimum judge probability to replay after a prompt edit. Applied to stored verdicts too, so changing it takes effect without re-judging. Must be 0–1. Precedence: session option → env var (run-wide override) → judge's own `threshold` → 0.85. |
+| `judge` | — | Jev (`jev-1.13.0`) | `createJevJudge({ model, apiKey, threshold })`, `createSpanJudge({ model, apiKey, threshold })` (Respan span-01; `model` `span-01-pro` default or `span-01-free`), a custom `Judge` (`{ id, judge(input) }`), or `false` so text edits always re-record. |
 | `scrub` | — | ISO dates/datetimes, UUIDs; ignore `user`, `metadata` | `{ patterns, ignoreFields }` are added to the defaults. `false`: exact matches only. |
 | `provider` | — | from URL (`/messages` → anthropic) | Force `openai` or `anthropic` for proxies and custom base URLs. |
 | `fetch` | — | global `fetch` | (`openCassette` only) the real fetch used when recording. |
 
 Judge keys, only needed in record/refresh mode: Jev reads
 `TYPESAFE_API_KEY`, span-01 reads `RESPAN_API_KEY` (`span-01-pro` also
-needs Respan credits). Verdicts are keyed by judge, so switching judges
+needs Respan credits). If the key is missing, a prompt edit re-records and
+the reason says which variable to set (or to pass `judge: false`); the
+judge is never called. Verdicts are keyed by judge, so switching judges
 re-judges rather than reusing the other judge's verdicts. The library doesn't load `.env` files; load them yourself.
 
 Recorded response headers are limited to `content-type`, `retry-after`
@@ -47,19 +49,19 @@ config; replays finish in milliseconds.
 
 ```ts
 // test/llm.ts
-import { createSpanJudge } from "llm-cassette";
-import { createTest } from "llm-cassette/vitest";
+import { createSpanJudge } from "@damiensmith1/llm-cassette";
+import { createTest } from "@damiensmith1/llm-cassette/vitest";
 export const spanTest = createTest({ judge: createSpanJudge({ model: "span-01-free" }) });
 export const test = createTest({ threshold: 0.9, onMiss: "warn", hosts: ["llm-proxy.internal"] });
 ```
 
-## Report (`llm-cassette/vitest/reporter`)
+## Report (`@damiensmith1/llm-cassette/vitest/reporter`)
 
 ```ts
 // vitest.config.ts
 export default defineConfig({
   test: {
-    reporters: ["default", ["llm-cassette/vitest/reporter", { detail: "all", outputFile: "llm-cassette.json" }]],
+    reporters: ["default", ["@damiensmith1/llm-cassette/vitest/reporter", { detail: "all", outputFile: "llm-cassette.json" }]],
   },
 });
 ```

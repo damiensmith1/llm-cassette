@@ -25,7 +25,7 @@ function resolveDetail(explicit?: ReportDetail): ReportDetail {
 
 /**
  * Summarizes every cassette decision in the run. Add it next to your usual reporter:
- * `reporters: ["default", ["llm-cassette/vitest/reporter", { detail: "all" }]]`.
+ * `reporters: ["default", ["@damiensmith1/llm-cassette/vitest/reporter", { detail: "all" }]]`.
  */
 export default class CassetteReporter implements Reporter {
   private readonly reports: TestReport[] = [];

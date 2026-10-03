@@ -104,7 +104,7 @@ export async function openCassette(path: string, options: OpenCassetteOptions = 
   const pending = new Set<Promise<void>>();
   const scrubber = createScrubber(options.scrub);
   const judge = options.judge === false ? undefined : (options.judge ?? createJevJudge());
-  const threshold = resolveThreshold(options.threshold);
+  const threshold = resolveThreshold(options.threshold, judge?.threshold);
   let calls = 0;
 
   /**
@@ -149,6 +149,10 @@ export async function openCassette(path: string, options: OpenCassetteOptions = 
     let verdict = cassette.verdicts.find((v) => v.key === key);
     if (!verdict) {
       if (mode === "replay") return { reason: "prompt text changed and there's no stored verdict" };
+      const problem = judge.setupProblem?.();
+      if (problem) {
+        return { reason: `prompt text changed but the judge can't run: ${problem}. Set it, or pass judge: false to always re-record` };
+      }
       try {
         const j = await judge.judge({ old: recording.request, next: req, response: recording.response });
         verdict = { key, model: j.model, judge: judge.id, p: j.p, signals: j.signals, threshold, replay: j.p >= threshold };
