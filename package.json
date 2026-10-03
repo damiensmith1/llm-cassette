@@ -1,6 +1,6 @@
 {
   "name": "@damiensmith1/llm-cassette",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Record/replay for LLM API calls in tests. Cassettes that survive prompt edits, judged by Jev.",
   "license": "MIT",
   "author": "Damien Smith",
@@ -8,6 +8,10 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/damiensmith1/llm-cassette"
+  },
+  "homepage": "https://github.com/damiensmith1/llm-cassette#readme",
+  "bugs": {
+    "url": "https://github.com/damiensmith1/llm-cassette/issues"
   },
   "keywords": [
     "llm",
@@ -86,7 +90,8 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run typecheck && npm run build"
   },
   "peerDependencies": {
     "vitest": ">=3",
