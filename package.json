@@ -1,6 +1,6 @@
 {
   "name": "@damiensmith1/llm-cassette",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Record/replay for LLM API calls in tests. Cassettes that survive prompt edits, judged by Jev.",
   "license": "MIT",
   "author": "Damien Smith",
