@@ -21,13 +21,30 @@ const reply = (content: string) => ({
   body: { choices: [{ message: { role: "assistant", content } }] },
 });
 
+const responsesReq = (input: string): RecordedRequest => ({
+  provider: "openai-responses",
+  method: "POST",
+  url: "https://openrouter.ai/api/v1/responses",
+  body: { model: "openai/gpt-test", instructions: "Answer in one word.", input },
+});
+const responsesReply = {
+  status: 200,
+  headers: {},
+  events: null,
+  body: { output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: "Paris" }] }] },
+};
+
 const old = req("What is the capital of France?");
-const CASES = [
+const CASES: { name: string; next: RecordedRequest; valid: boolean; old?: RecordedRequest; response?: typeof responsesReply }[] = [
   { name: "paraphrase", next: req("What's France's capital city?"), valid: true },
   { name: "system prompt reworded", next: req("What is the capital of France?", "Reply with a single word."), valid: true },
   { name: "France → Germany", next: req("What is the capital of Germany?"), valid: false },
   { name: "asks for JSON", next: req("What is the capital of France? Reply in JSON."), valid: false },
   { name: "asks for a sentence", next: req("What is the capital of France?", "Answer in a full sentence."), valid: false },
+  ...[
+    { name: "responses: paraphrase", input: "What's France's capital city?", valid: true },
+    { name: "responses: Germany", input: "What is the capital of Germany?", valid: false },
+  ].map((c) => ({ ...c, next: responsesReq(c.input), old: responsesReq("What is the capital of France?"), response: responsesReply })),
 ];
 
 const judges: [string, Judge, string][] = [
@@ -44,7 +61,7 @@ for (const [name, judge, key] of judges) {
   (process.env[key] ? describe : describe.skip)(`${name} (live)`, () => {
     for (const c of CASES) {
       it(c.name, async () => {
-        const j = await judge.judge({ old, next: c.next, response: reply("Paris") });
+        const j = await judge.judge({ old: c.old ?? old, next: c.next, response: c.response ?? reply("Paris") });
         table.push(`${c.name.padEnd(24)} ${name.padEnd(13)} ${j.p.toFixed(2)}  ${c.valid ? "replay" : "re-record"}`);
         if (c.valid) expect(j.p).toBeGreaterThan(0.5);
         else expect(j.p).toBeLessThan(0.5);

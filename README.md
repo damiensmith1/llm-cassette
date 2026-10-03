@@ -15,8 +15,9 @@ the cassette is kept; if not, that call is re-recorded. The verdict is saved
 in the cassette, so CI stays deterministic.
 
 Early development. Works with Vitest and Jest, the official `openai` and
-`@anthropic-ai/sdk` clients (Chat Completions and Messages, streaming
-included) and Node 22+.
+`@anthropic-ai/sdk` clients (OpenAI Chat Completions and Responses,
+Anthropic Messages, streaming included), OpenAI-compatible hosts such as
+OpenRouter, and Node 22+.
 
 ## Quick start
 
@@ -31,8 +32,9 @@ test("classifies receipts", async () => {
 });
 ```
 
-No changes to your app code: calls to `api.openai.com` and
-`api.anthropic.com` are captured automatically. Each test gets its own
+No changes to your app code: calls to `api.openai.com`,
+`api.anthropic.com` and `openrouter.ai` are captured automatically (add
+other OpenAI-compatible hosts with the `hosts` option). Each test gets its own
 cassette in `__cassettes__/` next to the test file. Commit them.
 
 ```bash

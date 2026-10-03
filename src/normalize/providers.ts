@@ -7,6 +7,7 @@ import type { Provider } from "../types.js";
  */
 export const TEXT_FIELDS: Record<Provider, readonly string[]> = {
   openai: ["messages", "tools"],
+  "openai-responses": ["input", "instructions", "tools"],
   anthropic: ["messages", "system", "tools"],
 };
 
@@ -23,6 +24,10 @@ export function toolSchemas(provider: Provider, body: unknown): Map<string, unkn
     if (provider === "openai" && isObj(t.function) && typeof t.function.name === "string") {
       out.set(t.function.name, t.function.parameters);
     }
+    // Responses API function tools are flat; built-in tools (web_search, …) have no name.
+    if (provider === "openai-responses" && t.type === "function" && typeof t.name === "string") {
+      out.set(t.name, t.parameters);
+    }
   }
   return out;
 }
@@ -33,6 +38,10 @@ export function calledTools(provider: Provider, body: unknown): string[] | undef
   if (provider === "anthropic") {
     if (!Array.isArray(body.content)) return undefined;
     return body.content.flatMap((c) => (isObj(c) && c.type === "tool_use" && typeof c.name === "string" ? [c.name] : []));
+  }
+  if (provider === "openai-responses") {
+    if (!Array.isArray(body.output)) return undefined;
+    return body.output.flatMap((o) => (isObj(o) && o.type === "function_call" && typeof o.name === "string" ? [o.name] : []));
   }
   if (!Array.isArray(body.choices)) return undefined;
   return body.choices.flatMap((choice) => {
@@ -45,7 +54,8 @@ const TEXT_PART_TYPES = new Set(["text", "input_text", "output_text", "tool_use"
 
 /** Every non-text message part (images, audio, files), in order. Jev reads text only. */
 export function mediaParts(body: unknown): unknown[] {
-  const messages = isObj(body) && Array.isArray(body.messages) ? body.messages : [];
+  const list = isObj(body) ? (Array.isArray(body.messages) ? body.messages : body.input) : undefined;
+  const messages = Array.isArray(list) ? list : [];
   return messages.flatMap((m) => {
     const content = isObj(m) && Array.isArray(m.content) ? m.content : [];
     return content.filter((part) => isObj(part) && typeof part.type === "string" && !TEXT_PART_TYPES.has(part.type));

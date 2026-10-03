@@ -59,7 +59,7 @@ function partsText(content: unknown): string {
   return content
     .map((p: Obj) => {
       if (typeof p === "string") return p;
-      if (p?.type === "text" || p?.type === "input_text") return p.text ?? "";
+      if (p?.type === "text" || p?.type === "input_text" || p?.type === "output_text") return p.text ?? "";
       if (p?.type === "tool_use") return `[tool call ${p.name}(${JSON.stringify(p.input ?? {})})]`;
       if (p?.type === "tool_result") return `[tool result: ${partsText(p.content)}]`;
       return `[${p?.type ?? "part"}]`;
@@ -72,13 +72,24 @@ export function toSpanInput(provider: Provider, body: unknown): SpanMessage[] {
   const b = (body ?? {}) as Obj;
   const out: SpanMessage[] = [];
   if (provider === "anthropic" && b.system) out.push({ role: "system", content: partsText(b.system) });
+  if (provider === "openai-responses" && b.instructions) out.push({ role: "system", content: partsText(b.instructions) });
   const tools: Obj[] = Array.isArray(b.tools) ? b.tools : [];
   if (tools.length > 0) {
     const list = tools
-      .map((t) => (provider === "anthropic" ? t : t.function ?? {}))
+      .map((t) => (provider === "openai" ? t.function ?? {} : t))
+      .filter((t: Obj) => t.name)
       .map((t: Obj) => `- ${t.name}${t.description ? `: ${t.description}` : ""}`)
       .join("\n");
     out.push({ role: "system", content: `Available tools:\n${list}` });
+  }
+  if (provider === "openai-responses") {
+    const input = typeof b.input === "string" ? [{ role: "user", content: b.input }] : Array.isArray(b.input) ? b.input : [];
+    for (const item of input as Obj[]) {
+      if (item?.type === "function_call") out.push({ role: "assistant", content: `[tool call ${item.name}(${item.arguments ?? ""})]` });
+      else if (item?.type === "function_call_output") out.push({ role: "tool", content: `[tool result: ${partsText(item.output)}]` });
+      else if (item?.role) out.push({ role: String(item.role), content: partsText(item.content).trim() });
+    }
+    return out;
   }
   for (const m of Array.isArray(b.messages) ? b.messages : []) {
     let content = partsText(m?.content);

@@ -335,6 +335,27 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
   a normal dependency.
 - CI builds before testing, because the Jest test runs against `dist/`.
 
+## OpenAI Responses API (implemented)
+- New provider shape `openai-responses`, detected by the URL path ending in
+  `/responses`, so OpenAI-compatible hosts work too (OpenRouter's
+  `/api/v1/responses`). `openrouter.ai` joined the default `hosts`.
+- Text fields: `input`, `instructions`, `tools`. Everything else is a
+  setting, including `text` (structured output format) and
+  `previous_response_id`, so those changes always re-record.
+- Function tools are flat (`{ type: "function", name, parameters }`);
+  built-in tools (`web_search`, …) have no name and aren't schema-checked.
+  Called tools are `function_call` items in `output`. Media is checked in
+  `input` items' content parts.
+- Streams: the final `response.completed` (or `.incomplete` / `.failed`)
+  event carries the whole response, which is what judging reads.
+- Judges: `flattenResponse` reads `output_text` and `function_call` items;
+  span-01 gets `instructions` as a system message and input items as
+  messages (`function_call` → `[tool call …]`, `function_call_output` →
+  `[tool result …]`). Live: Jev 0.99 / 0.01 and span-01-free 0.95 / 0.07 on
+  paraphrase / France→Germany.
+- **Not field-tested** against a real OpenAI or OpenRouter account yet (no
+  key); SDK-level tests use the real `openai` client against a fake network.
+
 ## Build order
 
 1. [x] Cassette store + canonical hashing
@@ -383,6 +404,5 @@ streamed rewrite (Sonnet 5). Tests call the handlers directly.
       and fail" CI mode that has a key.
 - [ ] How to build the labeled eval set for the wrong-replay rate.
 - [ ] Record inter-chunk timing for streams (optional replay delay)?
-- [ ] OpenAI Responses API streams: reassemble for judging.
 - [ ] Is bit-exact Jev determinism guaranteed? The docs only say
       "extremely consistent". Stored verdicts make it moot for CI.

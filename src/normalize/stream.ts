@@ -121,5 +121,17 @@ function assembleAnthropic(events: readonly SseEvent[]): Obj | undefined {
  */
 export function finalBody(provider: Provider, response: RecordedResponse): unknown {
   if (!response.events) return response.body;
-  return provider === "anthropic" ? assembleAnthropic(response.events) : assembleOpenAI(response.events);
+  if (provider === "anthropic") return assembleAnthropic(response.events);
+  if (provider === "openai-responses") return assembleResponses(response.events);
+  return assembleOpenAI(response.events);
+}
+
+/** The Responses API ends its stream with the full response object. */
+function assembleResponses(events: readonly SseEvent[]): Obj | undefined {
+  const done = new Set(["response.completed", "response.incomplete", "response.failed"]);
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i]!.data as Obj;
+    if (done.has(e?.type) && e.response) return e.response;
+  }
+  return undefined;
 }

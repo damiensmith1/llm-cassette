@@ -1,7 +1,8 @@
 /** How a test run treats cassettes. See docs/design.md. */
 export type Mode = "replay" | "record" | "refresh";
 
-export type Provider = "openai" | "anthropic";
+/** The request shape: OpenAI Chat Completions, OpenAI Responses, or Anthropic Messages. */
+export type Provider = "openai" | "openai-responses" | "anthropic";
 
 export interface RecordedRequest {
   provider: Provider;

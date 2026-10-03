@@ -3,7 +3,7 @@ import type { CassetteSession } from "../session.js";
 import type { RecordedRequest } from "../types.js";
 import { decodeBody } from "./encoding.js";
 
-export const DEFAULT_HOSTS: readonly string[] = ["api.openai.com", "api.anthropic.com"];
+export const DEFAULT_HOSTS: readonly string[] = ["api.openai.com", "api.anthropic.com", "openrouter.ai"];
 
 export interface InterceptOptions {
   /** Hosts whose requests go through the cassette. Everything else passes through untouched. */

@@ -70,6 +70,15 @@ export function flattenResponse(provider: RecordedRequest["provider"], body: unk
       tool_calls: b.content.filter((c: any) => c?.type === "tool_use").map((c: any) => ({ name: c.name, args: c.input })),
     };
   }
+  if (provider === "openai-responses" && Array.isArray(b.output)) {
+    return {
+      text: b.output
+        .filter((o: any) => o?.type === "message")
+        .flatMap((o: any) => (o.content ?? []).filter((c: any) => c?.type === "output_text").map((c: any) => c.text))
+        .join("\n"),
+      tool_calls: b.output.filter((o: any) => o?.type === "function_call").map((o: any) => ({ name: o.name, args: o.arguments })),
+    };
+  }
   const message = b.choices?.[0]?.message ?? {};
   return {
     text: typeof message.content === "string" ? message.content : "",

@@ -21,7 +21,7 @@ Passed to `openCassette(path, options)` or `createTest(options)` from
 | `threshold` | `LLM_CASSETTE_THRESHOLD` | the judge's `threshold`, else `0.85` | Minimum judge probability to replay after a prompt edit. Applied to stored verdicts too, so changing it takes effect without re-judging. Must be 0–1. Precedence: session option → env var (run-wide override) → judge's own `threshold` → 0.85. |
 | `judge` | — | Jev (`jev-1.13.0`) | `createJevJudge({ model, apiKey, threshold })`, `createSpanJudge({ model, apiKey, threshold })` (Respan span-01; `model` `span-01-pro` default or `span-01-free`), a custom `Judge` (`{ id, judge(input) }`), or `false` so text edits always re-record. |
 | `scrub` | — | ISO dates/datetimes, UUIDs; ignore `user`, `metadata` | `{ patterns, ignoreFields }` are added to the defaults. `false`: exact matches only. |
-| `provider` | — | from URL (`/messages` → anthropic) | Force `openai` or `anthropic` for proxies and custom base URLs. |
+| `provider` | — | from the URL path: `/messages` → `anthropic`, `/responses` → `openai-responses`, else `openai` | Force `openai`, `openai-responses` or `anthropic` for proxies whose paths don't follow that. |
 | `fetch` | — | global `fetch` | (`openCassette` only) the real fetch used when recording. |
 
 Judge keys, only needed in record/refresh mode: Jev reads
@@ -43,7 +43,7 @@ config; replays finish in milliseconds.
 
 | Option | Default | What it does |
 |---|---|---|
-| `hosts` | `api.openai.com`, `api.anthropic.com` | Hosts routed through the cassette; other HTTP passes through. |
+| `hosts` | `api.openai.com`, `api.anthropic.com`, `openrouter.ai` | Hosts routed through the cassette; other HTTP passes through. Add other OpenAI-compatible hosts (Groq, Together, a local server) here. |
 | `onMiss` | `fail` | `warn`: a replay miss or rejection is reported but doesn't fail the test. |
 | `cassettePath` | `__cassettes__/<file>/<slug>.<hash8>.json` next to the test | `(testFile, names) => path`. |
 

@@ -1,9 +1,17 @@
 import type { Provider, RecordedRequest } from "../types.js";
 import { canonicalize, hashOf } from "./canonical.js";
 
-/** Anthropic's Messages API lives at /v1/messages; everything else is treated as OpenAI-shaped. */
+/**
+ * The API shape, from the path: `/messages` is Anthropic, `/responses` is
+ * OpenAI's Responses API, anything else is Chat Completions. Paths, not
+ * hosts, so OpenAI-compatible hosts (e.g. OpenRouter's `/api/v1/responses`)
+ * are detected too.
+ */
 export function detectProvider(url: string): Provider {
-  return new URL(url).pathname.endsWith("/messages") ? "anthropic" : "openai";
+  const path = new URL(url).pathname;
+  if (path.endsWith("/messages")) return "anthropic";
+  if (path.endsWith("/responses")) return "openai-responses";
+  return "openai";
 }
 
 /**
