@@ -40,6 +40,14 @@ adapters
     `respondWith`; record → no response, so the request goes to the real
     API, and the `response` event (type `original`) hands the real
     response to `session.record()`. `save()` awaits in-flight recordings.
+  - **Compression (bug found in the field test):** socket-level
+    interception sees raw bytes, still gzip/br-compressed, while `fetch`
+    decodes them for the app. The first prompt-tuner recordings stored
+    garbled bodies (JSON replayed as a 500; the stream parsed to zero
+    events). Fix: requests being recorded get `accept-encoding: identity`,
+    and `decodeBody()` (`src/intercept/encoding.ts`) decodes gzip, deflate,
+    br and zstd in case a server compresses anyway. The `session.fetch`
+    path doesn't need this (undici has already decoded).
   - Calling native `fetch` from inside the listener would be intercepted
     again, which is why recording uses passthrough + the response event.
   - v0.45's `FetchInterceptor` in Node is also socket-level; it doesn't see
@@ -54,9 +62,13 @@ adapters
 ## Normalization
 - Request headers are never recorded or compared (see Session below):
   that covers `X-Stainless-*`, idempotency keys, user-agent and auth.
-- Response `set-cookie`, `content-length` and encoding headers are dropped.
-  Other response volatiles (ids, `created`, rate-limit headers, request
-  ids) are stored but never compared.
+- **Response headers are allowlisted (decided after the prompt-tuner field
+  test):** only `content-type`, `retry-after` and `x-should-retry` are
+  recorded (`KEEP_HEADERS` in `src/normalize/response.ts`). Real Anthropic
+  responses carry `anthropic-organization-id` and `anthropic-workspace-id`,
+  which identify the account and mustn't land in public repos, plus dates,
+  rate limits, request ids and Cloudflare headers that are pure noise.
+  Body volatiles (ids, `created`) are stored but never compared.
 - Canonical JSON (sorted keys) is used for hashing.
 - **Scrubbing (implemented, `src/normalize/scrub.ts`).** The second rung.
   When there's no exact match, both the new request and each recording are
@@ -265,6 +277,21 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
 6. [x] Jev judge + stored verdicts
 7. [x] Run report
 8. [x] Streaming as parsed SSE events
+
+## Field test: prompt-tuner (2026-10-03)
+
+First run against a real app: two Vercel edge handlers with a module-level
+Anthropic client, `messages.parse` + structured output (Haiku 4.5) and a
+streamed rewrite (Sonnet 5). Tests call the handlers directly.
+- Recording took ~9s; replay ~0.6s, offline, with no API keys or `.env`.
+- The stream recorded as 122 readable events.
+- Harmless system-prompt rewording: Jev p=0.96, kept. "At most four gaps"
+  → "at most one": p=0.04 (`format_changed` 0.69), re-recorded.
+- Found and fixed: compressed bodies, account-identifying headers saved,
+  and a noisy reason on brand-new recordings (now only replacements get a
+  reason).
+- Recording real calls needs a longer Vitest `testTimeout` than the 5s
+  default (see [[configuration]]).
 
 ## Open questions
 - [ ] **Package name.** `llm-cassette` already exists on npm, and

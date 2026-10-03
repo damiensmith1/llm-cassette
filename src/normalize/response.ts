@@ -1,13 +1,18 @@
 import type { RecordedResponse } from "../types.js";
 import { isEventStream, parseSse, sseStream } from "./stream.js";
 
-/** Response headers never worth keeping: they are secret or per-run. */
-const DROP_HEADERS = new Set(["set-cookie", "content-length", "content-encoding", "transfer-encoding"]);
+/**
+ * The only response headers recorded. Everything else is per-run noise
+ * (dates, rate limits, request ids) or identifies the account (organization
+ * and workspace ids, cookies), which mustn't end up in a public repo.
+ * These are the ones the SDKs act on.
+ */
+export const KEEP_HEADERS: readonly string[] = ["content-type", "retry-after", "x-should-retry"];
 
 export async function recordResponse(res: Response): Promise<RecordedResponse> {
   const headers: Record<string, string> = {};
   res.headers.forEach((value, name) => {
-    if (!DROP_HEADERS.has(name)) headers[name] = value;
+    if (KEEP_HEADERS.includes(name)) headers[name] = value;
   });
   const text = await res.clone().text();
   if (isEventStream(headers["content-type"])) {

@@ -1,6 +1,7 @@
 import { HttpRequestInterceptor } from "@mswjs/interceptors/http";
 import type { CassetteSession } from "../session.js";
 import type { RecordedRequest } from "../types.js";
+import { decodeBody } from "./encoding.js";
 
 export const DEFAULT_HOSTS: readonly string[] = ["api.openai.com", "api.anthropic.com"];
 
@@ -39,6 +40,8 @@ export function interceptGlobal(session: CassetteSession, options: InterceptOpti
     if (!hosts.has(new URL(request.url).hostname)) return;
     const r = await session.resolve(request);
     if (r.kind === "record") {
+      // Ask for an uncompressed reply; decodeBody covers servers that compress anyway.
+      request.headers.set("accept-encoding", "identity");
       toRecord.set(requestId, r.reason === undefined ? { request: r.request } : { request: r.request, reason: r.reason });
       return; // No response given: the request goes to the real API.
     }
@@ -49,7 +52,7 @@ export function interceptGlobal(session: CassetteSession, options: InterceptOpti
     const pending = toRecord.get(requestId);
     if (!pending || responseType !== "original") return;
     toRecord.delete(requestId);
-    void session.record(pending.request, response, pending.reason);
+    void decodeBody(response).then((decoded) => session.record(pending.request, decoded, pending.reason));
   });
 
   interceptor.apply();

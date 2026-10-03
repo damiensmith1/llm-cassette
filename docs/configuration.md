@@ -27,6 +27,14 @@ Passed to `openCassette(path, options)` or `createTest(options)` from
 Jev reads its key from `TYPESAFE_API_KEY` (only needed in record/refresh
 mode). The library doesn't load `.env` files; load them yourself.
 
+Recorded response headers are limited to `content-type`, `retry-after`
+and `x-should-retry` (not configurable yet); account ids, cookies and
+rate-limit headers are never saved.
+
+**Timeouts:** recording makes real model calls, which often exceed
+Vitest's 5s default. Set `test.testTimeout` (e.g. `60_000`) in your Vitest
+config; replays finish in milliseconds.
+
 ## Vitest-only options (`createTest`)
 
 | Option | Default | What it does |

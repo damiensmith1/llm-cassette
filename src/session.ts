@@ -130,9 +130,12 @@ export async function openCassette(path: string, options: OpenCassetteOptions = 
    * replay, or the reason it can't replay. Fails closed: no verdict, no key
    * or a judge error never replays.
    */
-  const judgeNearMiss = async (callIndex: number, req: RecordedRequest): Promise<Resolution | { reason: string; p?: number }> => {
+  const judgeNearMiss = async (
+    callIndex: number,
+    req: RecordedRequest,
+  ): Promise<Resolution | { reason: string; p?: number; fresh?: true }> => {
     const candidate = pickCandidate(cassette, used, callIndex, req);
-    if (candidate === -1) return { reason: "no unused recording for this endpoint" };
+    if (candidate === -1) return { reason: "no recording for this request", fresh: true };
     used.add(candidate); // Claim it before any await, so concurrent calls don't share it.
     const recording = cassette.interactions[candidate]!;
     supersedes.set(req, { index: candidate });
@@ -179,10 +182,12 @@ export async function openCassette(path: string, options: OpenCassetteOptions = 
     if ("kind" in near) return near;
     if (mode === "replay") {
       supersedes.delete(recorded);
-      events.push({ kind: near.p === undefined ? "miss" : "rejected", request: recorded, ...near });
+      const { fresh: _fresh, ...detail } = near;
+      events.push({ kind: near.p === undefined ? "miss" : "rejected", request: recorded, ...detail });
       return { kind: "miss", response: missResponse(new CassetteMissError(path, recorded, near.reason)) };
     }
-    return { kind: "record", request: recorded, reason: near.reason };
+    // A brand-new request needs no explanation; a replaced recording does.
+    return near.fresh ? { kind: "record", request: recorded } : { kind: "record", request: recorded, reason: near.reason };
   };
 
   const record = (request: RecordedRequest, res: Response, reason?: string): Promise<void> => {

@@ -129,6 +129,7 @@ describe("openCassette", () => {
     await second.save();
     expect(net).toHaveBeenCalledTimes(2);
     expect(second.events.map((e) => e.kind)).toEqual(["exact", "recorded"]);
+    expect(second.events[1]).not.toHaveProperty("reason");
   });
 
   it("replays repeated identical calls in recorded order", async () => {
