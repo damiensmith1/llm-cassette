@@ -19,6 +19,12 @@ Early development. Works with Vitest and Jest, the official `openai` and
 Anthropic Messages, streaming included), OpenAI-compatible hosts such as
 OpenRouter, and Node 22+.
 
+> **Beta:** OpenAI (Chat Completions and Responses) and OpenRouter support
+> is tested with the official `openai` client against simulated responses,
+> but not yet against the live APIs. Anthropic has been tested on a real app.
+> Please [open an issue](https://github.com/damiensmith1/llm-cassette/issues)
+> if something doesn't record or replay correctly.
+
 ## Quick start
 
 ```ts
