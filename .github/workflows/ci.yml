@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: [20, 22]
+        node: [22, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,3 +24,12 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  # The one required check on main: passes only if every matrix job passed,
+  # so the Node versions above can change without editing the ruleset.
+  ci:
+    if: always()
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.test.result }}" = "success"

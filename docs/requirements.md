@@ -59,7 +59,8 @@ See [[background]] for why, and [[design]] for how.
 - **Parallel-safe.** Safe across Vitest workers: one file per test and
   atomic write-then-rename.
 - **Cheap.** Jev is called only for near-misses in record/refresh mode.
-- **Node 20+.** ESM and CJS, fully typed.
+- **Node 22+.** ESM and CJS, fully typed. (Node 20 reached end of life in
+  April 2026, and `@mswjs/interceptors` 0.42+ requires 22.)
 
 ## Non-goals
 - Judging output quality. That's what eval frameworks are for.

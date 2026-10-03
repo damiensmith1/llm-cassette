@@ -21,7 +21,8 @@ Read these before non-trivial changes:
 - `docs/configuration.md`: every option and env var (keep it current when adding one)
 
 ## Conventions
-- Node 20+, TypeScript, ESM and CJS builds.
+- Node 22+ (`@mswjs/interceptors` 0.42+ needs it; Node 20 is EOL), TypeScript, ESM and CJS builds.
+- The only required check on main is the `ci` job, which passes when every matrix job passes. Change Node versions freely; don't rename `ci`.
 - Replay mode must never touch the network, and that includes Jev.
 - Pin the Jev model version. Version the question wording.
 - Never write auth headers to cassettes.

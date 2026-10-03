@@ -23,7 +23,7 @@
     "jev"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -83,7 +83,7 @@
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
-    "@types/node": "^20.19.43",
+    "@types/node": "^22.20.5",
     "openai": "^7.25.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
