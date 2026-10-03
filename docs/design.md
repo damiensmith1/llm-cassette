@@ -90,8 +90,7 @@ Decisions:
   errors as a generic "Connection error" and retry them, which hid the
   message. The miss is also recorded in `session.events`, so the Vitest
   adapter can fail the test even if app code catches the error.
-- **Streaming, interim:** SSE bodies are stored as raw text and replay
-  byte for byte. The parsed event list (below) is still the plan.
+- **Streaming:** stored as parsed SSE events (see Streaming below).
 - Provider is detected from the URL (`/messages` → anthropic, else openai),
   overridable for proxies.
 
@@ -118,8 +117,8 @@ Decisions:
      validator dependency.
    - **Images, audio, files:** any change to non-text message parts rejects.
      Jev reads text only.
-   - **Streamed recordings** (raw SSE text) are rejected until streaming is
-     stored as parsed events.
+   - **Unreadable recordings** (e.g. legacy raw-SSE text, unknown stream
+     shapes) are rejected; streamed recordings are reassembled first.
 
    **Candidate (decided, `src/match/candidate.ts`):** the unused recording
    at the same position in the session's call sequence if it hits the same
@@ -196,7 +195,7 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
   "interactions": [
     {
       "request":  { "provider": "anthropic", "url": "...", "body": { /* canonical */ } },
-      "response": { "status": 200, "headers": { }, "body": { }, "events": null /* SSE later */ },
+      "response": { "status": 200, "headers": { }, "body": { }, "events": null /* or [{ "event"?, "data" }] for streams */ },
       "recordedAt": "2026-09-28T00:00:00Z"
     }
   ],
@@ -207,14 +206,25 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
 }
 ```
 
-## Streaming (post-MVP)
-- Both SDKs parse SSE through `LineDecoder` (splitting on double
-  newlines). Store the parsed event list (`event`, `data`), including
-  Anthropic `ping`s and mid-stream `error` events. Re-serialize with
-  `content-type: text/event-stream` as a `ReadableStream`.
-- Optionally record gaps between chunks to test UI and abort behaviour.
-  See [[Streaming Architecture in Node.js]].
-- Reassemble the stream into a final message before judging.
+## Streaming (implemented, `src/normalize/stream.ts`)
+- Responses with `content-type: text/event-stream` are stored as a parsed
+  event list in `response.events` (`{ event?, id?, data }`, with `data`
+  parsed as JSON when it is JSON, e.g. OpenAI's `[DONE]` stays a string);
+  `response.body` is null. Comment lines are dropped; Anthropic `ping`s and
+  `error` events are kept. Readable and diffable in PRs.
+- Replay re-serializes the events and serves them as a `ReadableStream`,
+  one event per chunk, with the recorded headers. Both SDKs' stream helpers
+  are tested (`for await` on OpenAI, `messages.stream().finalMessage()` on
+  Anthropic), directly and through global interception.
+- **Judging streamed recordings:** `finalBody()` reassembles the events
+  into the body a non-streamed call would return (OpenAI chunk deltas incl.
+  tool-call args; Anthropic content blocks incl. `input_json_delta`), so
+  hard checks and Jev read them like any other recording. Unknown stream
+  shapes (e.g. OpenAI's Responses API) can't be read and re-record.
+- **Not done:** inter-chunk timing isn't recorded (replay streams as fast
+  as it's read), so UI/abort timing can't be tested yet. Recordings from
+  before this change (raw SSE text in `body`) still replay byte for byte
+  but can't be judged. See [[Streaming Architecture in Node.js]].
 
 ## Vitest integration
 - `llm-cassette/vitest` exports `test` / `it` (and `createTest(options)`
@@ -254,7 +264,7 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
 5. [x] Hard checks
 6. [x] Jev judge + stored verdicts
 7. [x] Run report
-8. [ ] Streaming as parsed SSE events
+8. [x] Streaming as parsed SSE events
 
 ## Open questions
 - [ ] **Package name.** `llm-cassette` already exists on npm, and
@@ -275,5 +285,7 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
 - [ ] Whether to call Jev in `record` mode only, or also offer a "judge
       and fail" CI mode that has a key.
 - [ ] How to build the labeled eval set for the wrong-replay rate.
+- [ ] Record inter-chunk timing for streams (optional replay delay)?
+- [ ] OpenAI Responses API streams: reassemble for judging.
 - [ ] Is bit-exact Jev determinism guaranteed? The docs only say
       "extremely consistent". Stored verdicts make it moot for CI.

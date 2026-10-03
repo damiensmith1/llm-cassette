@@ -36,12 +36,12 @@ See [[background]] for why, and [[design]] for how.
    written to disk.
 8. **Run report.** Counts of exact, scrubbed, judged (with p values),
    re-recorded and failed matches, with a reason for each miss.
-9. **Multi-turn.** A test can make several calls, e.g. a tool-calling
+9. **Streaming.** SSE responses record as a readable event list and replay
+   as a stream (done; optional timing is post-MVP).
+10. **Multi-turn.** A test can make several calls, e.g. a tool-calling
    loop. They are recorded as a sequence.
 
 ## Functional: after MVP
-- Streaming (SSE) record and replay, stored as a readable event list with
-  optional timing.
 - Jest adapter.
 - msw adapter.
 - aimock-compatible fixture import or export.

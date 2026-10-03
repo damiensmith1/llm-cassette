@@ -8,9 +8,9 @@ stays deterministic. Vitest first.
 Status: early development. Exact record/replay works through
 `openCassette().fetch` and the `llm-cassette/vitest` fixture (global
 interception), with scrubbing, hard checks and Jev judging of prompt
-edits with stored verdicts, and a Vitest run reporter. Streaming as
-parsed SSE events is next (see build
-order in docs/design.md).
+edits with stored verdicts, streaming as parsed SSE events, and a Vitest
+run reporter. The MVP build order is complete; see open questions in
+docs/design.md.
 
 ## Docs
 

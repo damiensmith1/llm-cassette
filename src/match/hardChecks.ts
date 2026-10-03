@@ -1,6 +1,7 @@
 import { canonicalJson } from "../normalize/canonical.js";
 import { calledTools, mediaParts, TEXT_FIELDS, toolSchemas } from "../normalize/providers.js";
 import type { Scrubber } from "../normalize/scrub.js";
+import { finalBody } from "../normalize/stream.js";
 import type { Interaction, RecordedRequest } from "../types.js";
 
 export type CheckResult = { ok: true } | { ok: false; reason: string };
@@ -35,8 +36,8 @@ export function hardChecks(candidate: Interaction, req: RecordedRequest, scrubbe
 
   if (!same(mediaParts(a), mediaParts(b))) return { ok: false, reason: "image, audio or file input changed" };
 
-  const called = calledTools(req.provider, candidate.response.body);
-  if (called === undefined) return { ok: false, reason: "recorded response can't be read (streamed responses aren't judged yet)" };
+  const called = calledTools(req.provider, finalBody(req.provider, candidate.response));
+  if (called === undefined) return { ok: false, reason: "recorded response can't be read" };
   const oldTools = toolSchemas(req.provider, a);
   const newTools = toolSchemas(req.provider, b);
   for (const name of called) {

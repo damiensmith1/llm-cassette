@@ -6,6 +6,7 @@ export type {
   Provider,
   RecordedRequest,
   RecordedResponse,
+  SseEvent,
   Verdict,
 } from "./types.js";
 export { canonicalize, canonicalJson, hashOf } from "./normalize/canonical.js";

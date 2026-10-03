@@ -75,9 +75,24 @@ describe("hardChecks", () => {
     expect(hardChecks(old, req("Be concise.", { type: "object", required: ["city"] }))).toMatchObject({ ok: false });
   });
 
-  it("rejects streamed recordings for now", () => {
+  it("rejects recordings it can't read, like legacy raw-text streams", () => {
     const r = hardChecks(interaction(openaiReq({}), "data: {...}\n\n"), openaiReq({ messages: [] }));
-    expect(r).toMatchObject({ ok: false, reason: expect.stringContaining("streamed") });
+    expect(r).toEqual({ ok: false, reason: "recorded response can't be read" });
+  });
+
+  it("reads tool calls from a streamed recording", () => {
+    const old: Interaction = {
+      request: openaiReq({ tools: [weatherTool], stream: true }),
+      recordedAt: "",
+      response: {
+        status: 200, headers: {}, body: null,
+        events: [
+          { data: { choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: "c1", function: { name: "weather", arguments: "" } }] } }] } },
+          { data: "[DONE]" },
+        ],
+      },
+    };
+    expect(hardChecks(old, openaiReq({ tools: [], stream: true }))).toMatchObject({ reason: 'recorded reply calls tool "weather", which was removed' });
   });
 });
 

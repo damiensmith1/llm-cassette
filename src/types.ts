@@ -11,12 +11,20 @@ export interface RecordedRequest {
   body: unknown;
 }
 
+/** One server-sent event. `data` is parsed JSON when the payload was JSON. */
+export interface SseEvent {
+  event?: string;
+  id?: string;
+  data: unknown;
+}
+
 export interface RecordedResponse {
   status: number;
   headers: Record<string, string>;
+  /** The JSON (or text) body; null for streamed responses. */
   body: unknown;
-  /** Parsed SSE events for streamed responses (post-MVP). */
-  events: null;
+  /** Parsed SSE events for streamed responses, else null. */
+  events: SseEvent[] | null;
 }
 
 export interface Interaction {

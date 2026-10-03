@@ -17,8 +17,20 @@ let baseURL = "";
 const hosts = ["127.0.0.1"];
 
 beforeAll(async () => {
-  server = createServer((_req, res) => {
+  server = createServer(async (req, res) => {
     hits++;
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    if (body.includes('"stream":true')) {
+      // Stream slowly, in separate writes, like the real API.
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      for (const word of ["Pa", "ris"]) {
+        res.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: word } }] })}\n\n`);
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      res.end("data: [DONE]\n\n");
+      return;
+    }
     res.writeHead(200, { "content-type": "application/json", "set-cookie": "secret=1" });
     res.end(JSON.stringify(chatReply));
   });
@@ -58,6 +70,33 @@ describe("interceptGlobal", () => {
     const play = await openCassette(path, { mode: "replay" });
     stop = interceptGlobal(play, { hosts });
     expect((await ask()).choices[0]?.message.content).toBe("receipts");
+    expect(hits).toBe(1);
+    expect(play.events.map((e) => e.kind)).toEqual(["exact"]);
+  });
+
+  it("records and replays a stream through interception", async () => {
+    const client = new OpenAI({ apiKey: "sk-test-key", baseURL, maxRetries: 0 });
+    const read = async () => {
+      const stream = await client.chat.completions.create({
+        model: "gpt-test",
+        stream: true,
+        messages: [{ role: "user", content: "capital of France?" }],
+      });
+      let text = "";
+      for await (const chunk of stream) text += chunk.choices[0]?.delta.content ?? "";
+      return text;
+    };
+    const path = join(dir, "s.json");
+
+    const rec = await openCassette(path, { mode: "record" });
+    stop = interceptGlobal(rec, { hosts });
+    expect(await read()).toBe("Paris");
+    stop();
+    await rec.save();
+
+    const play = await openCassette(path, { mode: "replay" });
+    stop = interceptGlobal(play, { hosts });
+    expect(await read()).toBe("Paris");
     expect(hits).toBe(1);
     expect(play.events.map((e) => e.kind)).toEqual(["exact"]);
   });

@@ -1,5 +1,6 @@
 import { noul, TypeSafeClient } from "@typesafe-ai/sdk";
 import { hashOf } from "../normalize/canonical.js";
+import { finalBody } from "../normalize/stream.js";
 import type { RecordedRequest, RecordedResponse } from "../types.js";
 import { requestDiff, textFields } from "./diff.js";
 
@@ -76,7 +77,7 @@ export function flattenResponse(provider: RecordedRequest["provider"], body: unk
  */
 export function buildState(input: JudgeInput): Record<string, unknown> | undefined {
   const diff = requestDiff(input.old, input.next);
-  const recorded_response = flattenResponse(input.next.provider, input.response.body);
+  const recorded_response = flattenResponse(input.next.provider, finalBody(input.next.provider, input.response));
   const full = { old_request: textFields(input.old), new_request: textFields(input.next), diff, recorded_response };
   if (JSON.stringify(full).length <= MAX_STATE_CHARS) return full;
   const slim = { diff, recorded_response };
