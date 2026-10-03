@@ -55,6 +55,24 @@ export const spanTest = createTest({ judge: createSpanJudge({ model: "span-01-fr
 export const test = createTest({ threshold: 0.9, onMiss: "warn", hosts: ["llm-proxy.internal"] });
 ```
 
+## Jest (`@damiensmith1/llm-cassette/jest`)
+
+Add the setup file and, optionally, the reporter:
+
+```js
+// jest.config.js
+module.exports = {
+  setupFilesAfterEnv: ["@damiensmith1/llm-cassette/jest"],
+  reporters: ["default", ["@damiensmith1/llm-cassette/jest/reporter", { detail: "all" }]],
+};
+```
+
+`configureCassette(options)` takes the same options as Vitest's
+`createTest` (session options plus `hosts`, `onMiss`, `cassettePath`) and
+applies to the test file it's called in; calls merge. `useCassette()`
+returns the running test's session. The reporter takes the same options as
+the Vitest one below.
+
 ## Report (`@damiensmith1/llm-cassette/vitest/reporter`)
 
 ```ts

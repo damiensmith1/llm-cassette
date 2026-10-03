@@ -14,7 +14,7 @@ model whether the saved response still answers the new prompt. If it does,
 the cassette is kept; if not, that call is re-recorded. The verdict is saved
 in the cassette, so CI stays deterministic.
 
-Early development. Works with Vitest, the official `openai` and
+Early development. Works with Vitest and Jest, the official `openai` and
 `@anthropic-ai/sdk` clients (Chat Completions and Messages, streaming
 included) and Node 22+.
 
@@ -40,7 +40,21 @@ LLM_CASSETTE_MODE=record npx vitest   # record new calls (default locally)
 LLM_CASSETTE_MODE=replay npx vitest   # never touch the network (default on CI)
 ```
 
-Recording makes real calls, so raise Vitest's `testTimeout` (e.g. `60_000`).
+Recording makes real calls, so raise the test timeout (e.g. `60_000`).
+
+### Jest
+
+```js
+// jest.config.js
+module.exports = {
+  setupFilesAfterEnv: ["@damiensmith1/llm-cassette/jest"],
+  reporters: ["default", "@damiensmith1/llm-cassette/jest/reporter"],
+};
+```
+
+Every test then gets a cassette automatically. To set options for a test
+file, call `configureCassette({ ... })` at the top of it; `useCassette()`
+returns the current test's session.
 
 ## How matching works
 

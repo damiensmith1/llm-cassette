@@ -314,6 +314,27 @@ A missing file loads as an empty cassette; an unknown `version` is an error.
 - All settings and their env vars are listed in [[configuration]].
 - This repo's own `vitest.config.ts` uses the reporter.
 
+## Jest integration (implemented, `src/adapters/jest.ts`)
+- `setupFilesAfterEnv: ["@damiensmith1/llm-cassette/jest"]` registers a
+  global `beforeEach` (open the session from `expect.getState().testPath` and
+  `currentTestName`, start interception) and `afterEach` (stop, save, report,
+  then throw on a replay miss, which fails the test). Jest has no fixtures,
+  so options come from `configureCassette()` (per test file: Jest gives each
+  file its own module registry) and the session from `useCassette()`.
+- **Report across workers (decided):** Jest workers can't talk to reporters.
+  The reporter (main process) makes a temp dir and sets
+  `LLM_CASSETTE_JEST_REPORT_DIR` in its constructor, before workers are
+  forked, so they inherit it; `afterEach` writes one JSON file per test
+  there, and `onRunComplete` reads, summarizes and removes it. Covered by a
+  test that runs real Jest with two workers.
+- **CJS build bundles `@mswjs/interceptors` (decided).** It ships ESM only,
+  and Jest's CommonJS runtime can't `require` ESM before Node 24.9. The CJS
+  build inlines it and its ESM dependencies (`tsup.config.ts`), shims
+  `import.meta.url`, and copies `llhttp.wasm` (which the interceptor loads
+  relative to its own file) next to each bundle. The ESM build keeps it as
+  a normal dependency.
+- CI builds before testing, because the Jest test runs against `dist/`.
+
 ## Build order
 
 1. [x] Cassette store + canonical hashing

@@ -1,11 +1,10 @@
-import { relative } from "node:path";
 import { test as base } from "vitest";
 import type { Suite, Test } from "vitest";
 import { cassettePath as defaultCassettePath } from "../cassette/path.js";
 import { interceptGlobal } from "../intercept/global.js";
 import type { InterceptOptions } from "../intercept/global.js";
-import { toReportEvents } from "../report/summary.js";
 import type { TestReport } from "../report/summary.js";
+import { missError, testReport } from "./shared.js";
 import { openCassette } from "../session.js";
 import type { CassetteSession, OpenCassetteOptions } from "../session.js";
 
@@ -56,25 +55,11 @@ export function createTest(options: CassetteTestOptions = {}) {
         } finally {
           stop();
           await session.save();
-          if (session.events.length > 0) {
-            task.meta.llmCassette = {
-              test: names.join(" > "),
-              file: relative(process.cwd(), task.file.filepath),
-              cassette: relative(process.cwd(), path),
-              mode: session.mode,
-              threshold: session.threshold,
-              events: toReportEvents(session.events),
-            };
-          }
+          const report = testReport(session, task.file.filepath, names);
+          if (report) task.meta.llmCassette = report;
         }
-        const misses = session.events.filter((e) => e.kind === "miss" || e.kind === "rejected");
-        if (misses.length > 0 && onMiss === "fail") {
-          const list = misses.map((m) => `  ${m.request.method} ${m.request.url}: ${m.reason ?? "no match"}`).join("\n");
-          throw new Error(
-            `llm-cassette: ${misses.length} request(s) had no usable recording in ${path}:\n${list}\n` +
-              `Run with LLM_CASSETTE_MODE=record to record them.`,
-          );
-        }
+        const err = missError(session);
+        if (err && onMiss === "fail") throw err;
       },
       { auto: true },
     ],

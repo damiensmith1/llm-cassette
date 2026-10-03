@@ -38,11 +38,11 @@ See [[background]] for why, and [[design]] for how.
    re-recorded and failed matches, with a reason for each miss.
 9. **Streaming.** SSE responses record as a readable event list and replay
    as a stream (done; optional timing is post-MVP).
-10. **Multi-turn.** A test can make several calls, e.g. a tool-calling
+10. **Jest.** `setupFilesAfterEnv` adapter and reporter (done).
+11. **Multi-turn.** A test can make several calls, e.g. a tool-calling
    loop. They are recorded as a sequence.
 
 ## Functional: after MVP
-- Jest adapter.
 - msw adapter.
 - aimock-compatible fixture import or export.
 - A PR comment summarising the report in CI.
