@@ -19,13 +19,15 @@ Passed to `openCassette(path, options)` or `createTest(options)` from
 |---|---|---|---|
 | `mode` | `LLM_CASSETTE_MODE` | `replay` if `CI` is set, else `record` | `replay`: no network, fail on a miss. `record`: replay matches, record misses. `refresh`: re-record everything. |
 | `threshold` | `LLM_CASSETTE_THRESHOLD` | `0.85` | Minimum judge probability to replay after a prompt edit. Applied to stored verdicts too, so changing it takes effect without re-judging. Must be 0–1. |
-| `judge` | — | Jev (`jev-1.13.0`) | `false`: text edits always re-record. Or a custom `Judge` (`{ id, judge(input) }`), or `createJevJudge({ model, apiKey })`. |
+| `judge` | — | Jev (`jev-1.13.0`) | `createJevJudge({ model, apiKey })`, `createSpanJudge({ model, apiKey })` (Respan span-01; `model` `span-01-pro` default or `span-01-free`), a custom `Judge` (`{ id, judge(input) }`), or `false` so text edits always re-record. |
 | `scrub` | — | ISO dates/datetimes, UUIDs; ignore `user`, `metadata` | `{ patterns, ignoreFields }` are added to the defaults. `false`: exact matches only. |
 | `provider` | — | from URL (`/messages` → anthropic) | Force `openai` or `anthropic` for proxies and custom base URLs. |
 | `fetch` | — | global `fetch` | (`openCassette` only) the real fetch used when recording. |
 
-Jev reads its key from `TYPESAFE_API_KEY` (only needed in record/refresh
-mode). The library doesn't load `.env` files; load them yourself.
+Judge keys, only needed in record/refresh mode: Jev reads
+`TYPESAFE_API_KEY`, span-01 reads `RESPAN_API_KEY` (`span-01-pro` also
+needs Respan credits). Verdicts are keyed by judge, so switching judges
+re-judges rather than reusing the other judge's verdicts. The library doesn't load `.env` files; load them yourself.
 
 Recorded response headers are limited to `content-type`, `retry-after`
 and `x-should-retry` (not configurable yet); account ids, cookies and
@@ -45,7 +47,9 @@ config; replays finish in milliseconds.
 
 ```ts
 // test/llm.ts
+import { createSpanJudge } from "llm-cassette";
 import { createTest } from "llm-cassette/vitest";
+export const spanTest = createTest({ judge: createSpanJudge({ model: "span-01-free" }) });
 export const test = createTest({ threshold: 0.9, onMiss: "warn", hosts: ["llm-proxy.internal"] });
 ```
 

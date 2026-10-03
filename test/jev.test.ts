@@ -85,3 +85,12 @@ describe("createJevJudge", () => {
     });
   });
 });
+
+describe("sentence diff context", () => {
+  it("widens an edit to the sentence it sits in", () => {
+    const sys = (s: string) => `Intro line.\nYou review prompts ${s}. Then list gaps.`;
+    expect(requestDiff(req("q", sys("quickly")), req("q", sys("slowly")), "sentence")).toEqual([
+      { path: "system", before: "…You review prompts quickly.…", after: "…You review prompts slowly.…" },
+    ]);
+  });
+});

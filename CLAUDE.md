@@ -26,8 +26,9 @@ Read these before non-trivial changes:
 - Replay mode must never touch the network, and that includes Jev.
 - Pin the Jev model version. Version the question wording.
 - Never write auth headers to cassettes.
-- `npm test` runs a live Jev test when `.env` has `TYPESAFE_API_KEY`;
-  it's skipped in CI.
+- `npm test` runs live judge tests (`test/judges.live.test.ts`) for Jev
+  and span-01 when `.env` has `TYPESAFE_API_KEY` / `RESPAN_API_KEY`;
+  skipped in CI. `SPAN_MODEL=span-01-pro` tests the paid tier.
 
 ## Keeping docs in sync
 

@@ -164,7 +164,8 @@ Decisions:
 **First live check (2026-10-01, jev-1.13.0):** paraphrase of "capital of
 France" p=0.99; France → Germany p=0.02 (`asks_different_task` 0.62);
 "…reply in JSON" p=0.10 (`format_changed` 0.82). `test/jev.live.test.ts`
-runs these when `TYPESAFE_API_KEY` is set or `.env` exists; skipped in CI.
+(now `test/judges.live.test.ts`) runs these when the judge's key is set
+or in `.env`; skipped in CI.
 
 ### Stored verdicts (implemented)
 - Key: sha256 of (canonical old request, canonical new request, judge id
@@ -181,6 +182,44 @@ runs these when `TYPESAFE_API_KEY` is set or `.env` exists; skipped in CI.
   replacement is recorded, the old recording and its verdict are removed
   on save, so cassettes don't accumulate stale entries. Other unused
   recordings are kept (a test that failed midway shouldn't lose them).
+
+### span-01 judge (implemented, `src/match/span.ts`)
+`createSpanJudge({ model, apiKey })`, Respan's span-01 classifier via
+`POST https://api.respan.ai/api/v1/scores` (`RESPAN_API_KEY`). Opt-in; Jev
+stays the default. Models: `span-01-pro` (default, $0.02/1M input, needs
+Respan credits) and `span-01-free` (daily cap).
+- **Input:** span-01 reads one reply in the context of text messages. It
+  gets the *new* request flattened to text (system, a tool list, messages,
+  tool calls and results as `[tool call …]` text) as `span.input`, the
+  recorded reply as `span.output`, and a final system note quoting what
+  changed ("Before: … / Now: …").
+- **Decided after field testing (2026-10-03):**
+  - Asking "is the reply correct?" (`still_valid`) failed: on prompt-tuner's
+    long system prompt and JSON review, span-01 said p=0.05 even for the
+    *unedited* request, while its own `format_mismatch`/`off_task` said
+    nothing was wrong. It detects failures well and affirms correctness
+    badly, so the primary behavior is `breaks_change` and
+    **p(valid) = p_absent** (`p_not_observable` counts against replay).
+  - Without the change note it couldn't find a one-sentence change in a
+    4k-char system prompt (scored the same with and without the edit).
+  - The note quotes **whole sentences** (`requestDiff(…, "sentence")`). With
+    300 chars of context the harmless rewording scored 0.15 and the real
+    change 0.47 (backwards); with sentences, 0.91 and 0.45. Jev keeps the
+    300-char window, which works for it.
+- **Results** (threshold 0.85):
+
+  | Case | Jev 1.13.0 | span-01-free |
+  |---|---|---|
+  | Paraphrase of the question | 0.99 | 0.95 |
+  | System prompt reworded | 0.99 | 0.95 |
+  | France → Germany | 0.02 | 0.08 |
+  | "Reply in JSON" | 0.09 | 0.03 |
+  | "Answer in a full sentence" | 0.04 | 0.02 |
+  | prompt-tuner: harmless rewording | 0.96 | 0.91 |
+  | prompt-tuner: "at most one gap" | 0.04 | 0.45 |
+
+  Both judge every case correctly; span-01 has less margin on long, real
+  prompts (0.91 vs 0.85, 0.45). `span-01-pro` is untested (needs credits).
 
 ## Jev integration
 - `@typesafe-ai/sdk` v0.6 (`TypeSafeClient().systemOne({state, questions,
@@ -297,7 +336,9 @@ streamed rewrite (Sonnet 5). Tests call the handlers directly.
 - [ ] **Package name.** `llm-cassette` already exists on npm, and
       github.com/jamal-0x1/llm-cassette (1 star) exists. Pick a different
       published name?
-- [ ] Default threshold. 0.85 is a placeholder; tune it on labeled pairs.
+- [ ] Default threshold. 0.85 is a placeholder; tune it on labeled pairs,
+      per judge (span-01's margins on real prompts are narrower than Jev's).
+- [ ] Test `span-01-pro` (needs Respan credits).
       First live samples were far from it (0.99 vs 0.02–0.10).
 - [ ] Pruning unused recordings in general (only superseded ones are
       removed today).

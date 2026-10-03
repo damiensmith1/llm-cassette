@@ -23,3 +23,5 @@ export { createJevJudge, DEFAULT_JEV_MODEL, QUESTION_VERSION } from "./match/jev
 export type { Judge, JudgeInput, Judgment, JevJudgeOptions } from "./match/jev.js";
 export { EVENT_KINDS, formatSummary, summarize, toReportEvents } from "./report/summary.js";
 export type { EventKind, ReportDetail, ReportEvent, Summary, TestReport } from "./report/summary.js";
+export { createSpanJudge, DEFAULT_SPAN_MODEL } from "./match/span.js";
+export type { SpanJudgeOptions } from "./match/span.js";
