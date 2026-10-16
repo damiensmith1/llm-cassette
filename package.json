@@ -91,6 +91,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "eval:review": "tsx eval/review.ts",
+    "eval:run": "tsx eval/run.ts",
+    "eval:report": "tsx eval/report.ts",
     "prepublishOnly": "npm run typecheck && npm run build"
   },
   "peerDependencies": {
@@ -115,6 +118,7 @@
     "jest": "^30.5.2",
     "openai": "^7.25.0",
     "tsup": "^8.5.1",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"
   },

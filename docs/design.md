@@ -151,7 +151,13 @@ Decisions:
    Questions, all asked in one call:
    - `still_valid` (primary Noul): "Would `recorded_response` be a correct
      and appropriate reply to `new_request`, given the changes in `diff`?"
-     Its true/false criteria are spelled out explicitly.
+     Its true/false criteria are spelled out explicitly. **v2
+     (2026-10-16):** the true criterion also accepts a tool call that is
+     still the right next step. Under v1, "fully answers the request" made
+     Jev score harmless edits of a tool-call-only reply at ~0.3; v2 scores
+     them ~0.9 with no new wrong replays ([[evals]]). The bump means v1
+     verdicts in existing cassettes no longer match: judged pairs re-judge
+     in `record`, and fail in `replay` until re-recorded.
    - `format_changed`, `asks_different_task`: diagnostic Nouls shown in the
      rejection reason.
 
@@ -388,6 +394,11 @@ streamed rewrite (Sonnet 5). Tests call the handlers directly.
       published name?
 - [ ] Default threshold. 0.85 is a placeholder; tune it on labeled pairs,
       per judge (span-01's margins on real prompts are narrower than Jev's).
+      The eval harness exists ([[evals]]). With question v2, Jev at 0.85
+      replays 1 of 78 broken pairs (≤7%) and keeps 82% of valid ones;
+      span-01-free isn't usable at any threshold. Thresholds tuned on the
+      tune split didn't hold on test, so 0.85 stays until there's
+      cross-validation or more data. Not decided.
 - [ ] Test `span-01-pro` (needs Respan credits).
       First live samples were far from it (0.99 vs 0.02–0.10).
 - [ ] Pruning unused recordings in general (only superseded ones are
@@ -402,7 +413,13 @@ streamed rewrite (Sonnet 5). Tests call the handlers directly.
 - [ ] Global interception vs AsyncLocalStorage for `test.concurrent`.
 - [ ] Whether to call Jev in `record` mode only, or also offer a "judge
       and fail" CI mode that has a key.
-- [ ] How to build the labeled eval set for the wrong-replay rate.
+- [x] How to build the labeled eval set for the wrong-replay rate.
+      Families of edits split whole into tune/test, LLM-drafted labels
+      reviewed by a human with a blind round first. See [[evals]] and
+      [[labelling]].
 - [ ] Record inter-chunk timing for streams (optional replay delay)?
-- [ ] Is bit-exact Jev determinism guaranteed? The docs only say
-      "extremely consistent". Stored verdicts make it moot for CI.
+- [x] Is bit-exact Jev determinism guaranteed? No. On identical input,
+      back-to-back runs moved p by a median 0.00, 90th percentile 0.03,
+      max 0.11; runs hours apart moved up to 0.21 ([[evals]]). Stored
+      verdicts make it moot for CI, but a score near the threshold can
+      land on either side when it's recorded.

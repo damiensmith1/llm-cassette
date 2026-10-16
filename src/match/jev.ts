@@ -11,7 +11,7 @@ export const DEFAULT_JEV_MODEL = "jev-1.13.0";
  * Bump whenever the question wording changes. Wording moves Jev's answers,
  * so it's part of every verdict key and old verdicts stop applying.
  */
-export const QUESTION_VERSION = "v1";
+export const QUESTION_VERSION = "v2";
 
 /** Jev's state limit is 32k tokens; ~4 chars per token, with headroom for the questions. */
 const MAX_STATE_CHARS = 100_000;
@@ -20,7 +20,7 @@ export const QUESTIONS = {
   still_valid: noul(
     "Would `recorded_response` be a correct and appropriate reply to `new_request`, given the changes in `diff`?",
     {
-      true: "The changes do not alter what a correct reply must contain, its format, or which tools it calls; the recorded reply fully answers the new request.",
+      true: "The changes do not alter what a correct reply must contain, its format, or which tools it calls; the recorded reply fully answers the new request, or, if it is a tool call, calling that tool with those arguments is still the right next step.",
       false: "The changes ask for different facts, a different format, different tools or arguments, or add or remove a constraint the recorded reply violates.",
     },
   ),

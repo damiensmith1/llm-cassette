@@ -62,7 +62,7 @@ describe("createSpanJudge", () => {
       });
     });
     const judge = createSpanJudge({ apiKey: "test-key", fetch });
-    expect(judge.id).toBe("span-01-pro:v1");
+    expect(judge.id).toBe("span-01-pro:v2");
     expect(await judge.judge({ old: anthropicReq("a"), next: anthropicReq("b"), response })).toEqual({
       p: 0.91,
       signals: { format_mismatch: 0.03, off_task: 0.02 },

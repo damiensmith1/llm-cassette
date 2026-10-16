@@ -71,6 +71,6 @@ See [[background]] for why, and [[design]] for how.
 
 ## Success metrics
 - Wrong-replay rate on a labeled set of prompt edits (target: set after
-  the first eval).
+  the first eval). Measured by `eval/`, see [[evals]].
 - Re-records avoided and CI time/dollars saved on the author's own repos.
 - **Gap:** no user-adoption target set yet.

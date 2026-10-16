@@ -76,7 +76,7 @@ describe("createJevJudge", () => {
       });
     });
     const judge = createJevJudge({ apiKey: "test-key", fetch });
-    expect(judge.id).toBe("jev-1.13.0:v1");
+    expect(judge.id).toBe("jev-1.13.0:v2");
     expect(await judge.judge({ old: req("capital of France?"), next: req("France's capital?"), response })).toEqual({
       p: 0.93,
       signals: { format_changed: 0.02, asks_different_task: 0.04 },

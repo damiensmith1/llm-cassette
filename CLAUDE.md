@@ -19,6 +19,8 @@ Read these before non-trivial changes:
 - `docs/requirements.md`: MVP scope, non-goals
 - `docs/design.md`: architecture, matching ladder, open questions
 - `docs/configuration.md`: every option and env var (keep it current when adding one)
+- `docs/evals.md`: the judge eval in `eval/` (what's measured, splits, results)
+- `docs/labelling.md`: how pairs in the eval set are labelled
 
 ## Conventions
 - Node 22+ (`@mswjs/interceptors` 0.42+ needs it; Node 20 is EOL), TypeScript, ESM and CJS builds.
@@ -29,6 +31,9 @@ Read these before non-trivial changes:
 - `npm test` runs live judge tests (`test/judges.live.test.ts`) for Jev
   and span-01 when `.env` (see `.env.example`) has `TYPESAFE_API_KEY` / `RESPAN_API_KEY`;
   skipped in CI. `SPAN_MODEL=span-01-pro` tests the paid tier.
+- `eval/` is the judge eval (`npm run eval:review|run|report`), not shipped
+  and not run in CI. Changing judge wording or matching? Re-run it and
+  update the results in `docs/evals.md`.
 
 ## Keeping docs in sync
 
