@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-10-16)
 
 ### Changed
 - **Judge question v2.** Jev's `still_valid` question now counts a tool call
